@@ -312,8 +312,7 @@ st.markdown("""
 ss = st.session_state
 for key, default in {
     "language":"Korean","index":None,"embeddings":None,
-    "retriever_pool_df":None,"last_assessment":None,
-    "calculation_results":[]
+    "retriever_pool_df":None,"last_assessment":None
 }.items():
     if key not in ss: ss[key]=default
 
