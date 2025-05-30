@@ -1161,7 +1161,7 @@ with tabs[1]:
                     # 1) 유사 사례 검색
                     q_emb = embed_texts_with_openai([activity], api_key=api_key)[0]
                     D, I = ss.index.search(np.array([q_emb], dtype='float32'), 
-                                         k=min(5, len(ss.retriever_pool_df)))
+                                         k=min(10, len(ss.retriever_pool_df)))
                     sim_docs = ss.retriever_pool_df.iloc[I[0]]
 
                     # 2) 유해위험요인 예측
@@ -1273,7 +1273,14 @@ with tabs[1]:
                     
                     with col_improvement1:
                         st.markdown(f"### {texts['improvement_plan_header']}")
-                        st.markdown(improvement_plan)
+                    
+                        # 1) 2) 등 번호 뒤에 줄바꿈 넣기
+                        import re
+                        # 예: "1) 첫번째 2) 두번째 3) 세번째" -> 
+                        #    "1) 첫번째\n2) 두번째\n3) 세번째"
+                        plan_md = re.sub(r'(\d\))\s*', r'\1  \n', improvement_plan.strip())
+                    
+                        st.markdown(plan_md)
                     
                     with col_improvement2:
                         st.markdown(f"### {texts['risk_improvement_header']}")
@@ -1332,26 +1339,33 @@ with tabs[1]:
                     def create_excel_download():
                         output = io.BytesIO()
                         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-                            # Phase 1 결과 시트
+                            # ─── Phase 1 결과 시트 ─────────────────────────────
                             phase1_df = pd.DataFrame({
                                 "항목": ["작업활동", "유해위험요인", "빈도", "강도", "T값", "위험등급"],
                                 "값": [activity, hazard, freq, intensity, T, grade]
                             })
                             phase1_df.to_excel(writer, sheet_name="Phase1_결과", index=False)
-                            
-                            # Phase 2 결과 시트
+                    
+                            # ─── Phase 2 결과 시트 ─────────────────────────────
                             phase2_df = pd.DataFrame({
                                 "항목": ["개선대책", "개선 후 빈도", "개선 후 강도", "개선 후 T값", "개선 후 등급", "위험 감소율"],
-                                "값": [improvement_plan, improved_freq, improved_intensity, improved_T, 
-                                      determine_grade(improved_T), f"{rrr:.2f}%"]
+                                "값": [improvement_plan,
+                                        improved_freq,
+                                        improved_intensity,
+                                        improved_T,
+                                        determine_grade(improved_T),
+                                        f"{rrr:.2f}%"]
                             })
                             phase2_df.to_excel(writer, sheet_name="Phase2_결과", index=False)
-                            
-                            # 비교 분석 시트
+                    
+                            # ─── 비교 분석 시트 ───────────────────────────────
                             comparison_detail_df = pd.DataFrame({
                                 "항목": ["빈도", "강도", "T값", "위험등급"],
                                 "개선 전": [freq, intensity, T, grade],
-                                "개선 후": [improved_freq, improved_intensity, improved_T, determine_grade(improved_T)],
+                                "개선 후": [improved_freq,
+                                          improved_intensity,
+                                          improved_T,
+                                          determine_grade(improved_T)],
                                 "개선율": [
                                     f"{(freq-improved_freq)/freq*100:.1f}%" if freq > 0 else "0%",
                                     f"{(intensity-improved_intensity)/intensity*100:.1f}%" if intensity > 0 else "0%",
@@ -1360,26 +1374,42 @@ with tabs[1]:
                                 ]
                             })
                             comparison_detail_df.to_excel(writer, sheet_name="비교분석", index=False)
-                            
-                            # 유사 사례 시트 (포함된 경우)
-                            if include_similar_cases and similar_records:
-                                similar_df = pd.DataFrame(similar_records)
-                                similar_df.to_excel(writer, sheet_name="유사사례", index=False)
-                        
+                    
+                            # ─── 유사사례 시트 ─────────────────────────────────
+                            # 이미 similar_records 에는 10건이 들어와 있다고 가정
+                            if similar_records:
+                                sim_df = pd.DataFrame(similar_records)
+                    
+                                # 개선 후 빈도·강도 계산
+                                sim_df["개선 후 빈도"] = sim_df["빈도"].astype(int).apply(lambda x: max(1, x - 1))
+                                sim_df["개선 후 강도"] = sim_df["강도"].astype(int).apply(lambda x: max(1, x - 1))
+                    
+                                # 내보낼 컬럼 구성
+                                export_df = pd.DataFrame({
+                                    "작업활동 및 내용 Work Sequence":      sim_df["작업활동"],
+                                    "유해위험요인 및 환경측면 영향 Hazardous Factors": sim_df["유해위험요인"],
+                                    "위험성 Risk – 빈도 likelihood":     sim_df["빈도"],
+                                    "위험성 Risk – 강도 severity":      sim_df["강도"],
+                                    "개선대책 및 세부관리방안 Control Measures":    sim_df["개선대책"],
+                                    "위험성 Risk (개선 후) – 빈도 likelihood": sim_df["개선 후 빈도"],
+                                    "위험성 Risk (개선 후) – 강도 severity":  sim_df["개선 후 강도"],
+                                })
+                    
+                                export_df.to_excel(writer, sheet_name="유사사례", index=False)
+                    
+                                # 전체 컬럼 빨간색, 줄바꿈 적용
+                                workbook = writer.book
+                                worksheet = writer.sheets["유사사례"]
+                                red_fmt = workbook.add_format({
+                                    "font_color": "#FF0000",
+                                    "text_wrap": True
+                                })
+                                for col_idx in range(len(export_df.columns)):
+                                    # 폭 20, 서식 적용
+                                    worksheet.set_column(col_idx, col_idx, 20, red_fmt)
+                    
                         return output.getvalue()
 
-                    excel_data = create_excel_download()
-                    st.download_button(
-                        label=texts['excel_export'],
-                        data=excel_data,
-                        file_name=f"risk_assessment_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
-
-                except Exception as e:
-                    st.error(f"처리 중 오류가 발생했습니다: {str(e)}")
-                    st.exception(e)
 
 # ------------------- 푸터 ------------------------
 st.markdown('<hr style="margin-top: 3rem;">', unsafe_allow_html=True)
