@@ -8,9 +8,9 @@ import os
 from PIL import Image
 from sklearn.model_selection import train_test_split
 import json
-import plotly.graph_objects as go
-import plotly.express as px
 from datetime import datetime
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # 언어 설정 텍스트 정의
 system_texts = {
@@ -564,37 +564,40 @@ def export_to_excel(data, filename="risk_assessment_results.xlsx"):
         return None
 
 def create_risk_visualization(assessment_history):
-    """위험도 시각화 차트 생성"""
+    """위험도 시각화 차트 생성 (matplotlib 사용)"""
     if not assessment_history:
         return None
     
     df = pd.DataFrame(assessment_history)
     
     # 위험등급 분포 차트
-    grade_counts = df['grade'].value_counts()
-    fig_grade = px.pie(
-        values=grade_counts.values, 
-        names=grade_counts.index,
-        title="위험등급 분포",
-        color_discrete_map={
-            'A': '#FF4444', 'B': '#FF8800', 'C': '#FFCC00', 
-            'D': '#88CC00', 'E': '#44CC44'
-        }
-    )
+    fig1, ax1 = plt.subplots(figsize=(8, 6))
+    if 'grade' in df.columns:
+        grade_counts = df['grade'].value_counts()
+        colors = ['#FF4444', '#FF8800', '#FFCC00', '#88CC00', '#44CC44']
+        ax1.pie(grade_counts.values, labels=grade_counts.index, autopct='%1.1f%%', 
+                colors=colors[:len(grade_counts)])
+        ax1.set_title('위험등급 분포', fontsize=14, fontweight='bold')
     
     # 월별 추이 차트
-    df['date'] = pd.to_datetime(df['timestamp'])
-    df['month'] = df['date'].dt.to_period('M')
-    monthly_counts = df.groupby('month').size()
+    fig2, ax2 = plt.subplots(figsize=(10, 6))
+    if 'timestamp' in df.columns:
+        df['date'] = pd.to_datetime(df['timestamp'])
+        df['month'] = df['date'].dt.to_period('M')
+        monthly_counts = df.groupby('month').size()
+        
+        ax2.plot(range(len(monthly_counts)), monthly_counts.values, marker='o', linewidth=2, markersize=8)
+        ax2.set_title('월별 평가 건수 추이', fontsize=14, fontweight='bold')
+        ax2.set_xlabel('월')
+        ax2.set_ylabel('평가 건수')
+        ax2.grid(True, alpha=0.3)
+        
+        # x축 레이블 설정
+        ax2.set_xticks(range(len(monthly_counts)))
+        ax2.set_xticklabels([str(m) for m in monthly_counts.index], rotation=45)
     
-    fig_trend = px.line(
-        x=monthly_counts.index.astype(str), 
-        y=monthly_counts.values,
-        title="월별 평가 건수 추이",
-        labels={'x': '월', 'y': '평가 건수'}
-    )
-    
-    return fig_grade, fig_trend
+    plt.tight_layout()
+    return fig1, fig2
 
 # Phase 1 관련 함수들
 def construct_prompt_phase1_hazard(retrieved_docs, activity_text, language="Korean"):
@@ -1591,7 +1594,7 @@ with tabs[2]:
                             # 새 평가 버튼
                             if st.button("🔄 새 평가", key="new_assessment"):
                                 st.session_state.last_assessment = None
-                                st.experimental_rerun()
+                                st.rerun()
                     
                     else:
                         st.error(texts["parsing_error_improvement"])
@@ -1694,11 +1697,11 @@ with tabs[4]:
             
             with col1:
                 st.markdown("#### 📊 위험등급 분포")
-                st.plotly_chart(fig_grade, use_container_width=True)
+                st.pyplot(fig_grade)
             
             with col2:
                 st.markdown("#### 📈 월별 평가 추이")
-                st.plotly_chart(fig_trend, use_container_width=True)
+                st.pyplot(fig_trend)
         
         # 상세 분석
         history_df = pd.DataFrame(st.session_state.assessment_history)
@@ -1720,12 +1723,13 @@ with tabs[4]:
                 st.markdown(f"- **표준편차:** {t_values.std():.2f}")
                 
                 # T값 히스토그램
-                fig_hist = px.histogram(
-                    history_df, x='T', 
-                    title="T값 분포",
-                    nbins=10
-                )
-                st.plotly_chart(fig_hist, use_container_width=True)
+                fig_hist, ax_hist = plt.subplots(figsize=(8, 5))
+                ax_hist.hist(history_df['T'], bins=10, alpha=0.7, color='skyblue', edgecolor='black')
+                ax_hist.set_title('T값 분포')
+                ax_hist.set_xlabel('T값')
+                ax_hist.set_ylabel('빈도')
+                ax_hist.grid(True, alpha=0.3)
+                st.pyplot(fig_hist)
             
             st.markdown('</div>', unsafe_allow_html=True)
         
@@ -1743,11 +1747,12 @@ with tabs[4]:
                     st.markdown(f"- **최저 개선율:** {reduction_rates.min():.1f}%")
                     
                     # 개선율 분포
-                    fig_improvement = px.box(
-                        improvement_data, y='reduction_rate',
-                        title="개선율 분포"
-                    )
-                    st.plotly_chart(fig_improvement, use_container_width=True)
+                    fig_improvement, ax_improvement = plt.subplots(figsize=(8, 5))
+                    ax_improvement.boxplot(reduction_rates, vert=True)
+                    ax_improvement.set_title('개선율 분포')
+                    ax_improvement.set_ylabel('개선율 (%)')
+                    ax_improvement.grid(True, alpha=0.3)
+                    st.pyplot(fig_improvement)
                 else:
                     st.markdown("개선대책 데이터가 없습니다.")
             
@@ -1787,13 +1792,16 @@ with tabs[4]:
             
             # 작업유형별 위험도 차트
             if len(work_type_stats) > 1:
-                fig_worktype = px.bar(
-                    x=work_type_stats.index,
-                    y=work_type_stats['평균_T값'],
-                    title="작업유형별 평균 위험도",
-                    labels={'x': '작업유형', 'y': '평균 T값'}
-                )
-                st.plotly_chart(fig_worktype, use_container_width=True)
+                fig_worktype, ax_worktype = plt.subplots(figsize=(10, 6))
+                ax_worktype.bar(work_type_stats.index, work_type_stats['평균_T값'], 
+                               color='lightcoral', alpha=0.7, edgecolor='black')
+                ax_worktype.set_title('작업유형별 평균 위험도')
+                ax_worktype.set_xlabel('작업유형')
+                ax_worktype.set_ylabel('평균 T값')
+                ax_worktype.grid(True, alpha=0.3)
+                plt.xticks(rotation=45)
+                plt.tight_layout()
+                st.pyplot(fig_worktype)
         
         # 데이터 내보내기
         st.markdown("### 📤 데이터 내보내기")
