@@ -89,10 +89,18 @@ system_texts = {
         "t_value_change_header": "위험도(T값) 변화",
         "before_improvement": "개선 전 T값:",
         "after_improvement": "개선 후 T값:",
-        "parsing_error_improvement": "개선대책 생성 결과를 파싱할 수 없습니다.",
+        "parsing_error_improvement": "위험성 평가 결과를 파싱할 수 없습니다.",
         "excel_export": "📥 결과 Excel 다운로드",
-        "multiple_calculation": "다중 계산 수행",
-        "risk_classification": "위험도 분류"
+        "risk_classification": "위험도 분류",
+        "supported_languages": "지원 언어",
+        "languages_count": "3개",
+        "languages_detail": "한/영/중",
+        "assessment_phases": "평가 단계",
+        "phases_count": "2단계",
+        "phases_detail": "평가+개선",
+        "risk_grades": "위험등급",
+        "grades_count": "5등급",
+        "grades_detail": "A~E"
     },
     "English": {
         "title": "Artificial Intelligence Risk Assessment",
@@ -174,8 +182,16 @@ system_texts = {
         "after_improvement": "T-value After Improvement:",
         "parsing_error_improvement": "Unable to parse improvement measure generation results.",
         "excel_export": "📥 Download Excel Results",
-        "multiple_calculation": "Perform Multiple Calculations",
-        "risk_classification": "Risk Classification"
+        "risk_classification": "Risk Classification",
+        "supported_languages": "Supported Languages",
+        "languages_count": "3 Languages",
+        "languages_detail": "KOR/ENG/CHN",
+        "assessment_phases": "Assessment Phases",
+        "phases_count": "2 Phases",
+        "phases_detail": "Assessment+Improvement",
+        "risk_grades": "Risk Grades",
+        "grades_count": "5 Grades", 
+        "grades_detail": "A~E"
     },
     "Chinese": {
         "title": "Artificial Intelligence Risk Assessment",
@@ -257,8 +273,16 @@ system_texts = {
         "after_improvement": "改进后T值：",
         "parsing_error_improvement": "无法解析改进措施生成结果。",
         "excel_export": "📥 下载Excel结果",
-        "multiple_calculation": "执行多重计算",
-        "risk_classification": "风险分类"
+        "risk_classification": "风险分类",
+        "supported_languages": "支持语言",
+        "languages_count": "3种语言",
+        "languages_detail": "韩/英/中",
+        "assessment_phases": "评估阶段", 
+        "phases_count": "2个阶段",
+        "phases_detail": "评估+改进",
+        "risk_grades": "风险等级",
+        "grades_count": "5个等级",
+        "grades_detail": "A~E"
     }
 }
 
@@ -304,7 +328,7 @@ texts = system_texts[ss.language]
 st.markdown(f'<div class="main-header">{texts["title"]}</div>', unsafe_allow_html=True)
 
 # ----------------- 탭 구성 -----------------
-tabs = st.tabs([texts["tab_overview"], "Risk Assessment ✨", texts["multiple_calculation"]])
+tabs = st.tabs([texts["tab_overview"], "Risk Assessment ✨"])
 
 # -----------------------------------------------------------------------------
 # ---------------------------  공용 유틸리티 -----------------------------------
@@ -1020,11 +1044,11 @@ with tabs[0]:
         col_metric1, col_metric2, col_metric3 = st.columns(3)
         
         with col_metric1:
-            st.metric("지원 언어", "3개", "한/영/중")
+            st.metric(texts["supported_languages"], texts["languages_count"], texts["languages_detail"])
         with col_metric2:
-            st.metric("평가 단계", "2단계", "평가+개선")
+            st.metric(texts["assessment_phases"], texts["phases_count"], texts["phases_detail"])
         with col_metric3:
-            st.metric("위험등급", "5등급", "A~E")
+            st.metric(texts["risk_grades"], texts["grades_count"], texts["grades_detail"])
     
     with col_features:
         st.markdown(f"**{texts['features_title']}**")
@@ -1357,253 +1381,6 @@ with tabs[1]:
                 except Exception as e:
                     st.error(f"처리 중 오류가 발생했습니다: {str(e)}")
                     st.exception(e)
-
-# -----------------------------------------------------------------------------
-# --------------  다중 계산 탭 (신규) ----------------------------------------
-# -----------------------------------------------------------------------------
-with tabs[2]:
-    st.markdown(f'<div class="sub-header">{texts["multiple_calculation"]}</div>', unsafe_allow_html=True)
-    
-    st.markdown("""
-    이 기능을 사용하여 여러 작업활동에 대한 위험성 평가를 일괄 처리할 수 있습니다.
-    CSV 파일 업로드 또는 직접 입력으로 다중 평가를 수행하세요.
-    """)
-    
-    # 입력 방식 선택
-    input_method = st.radio(
-        "입력 방식 선택:",
-        ["CSV 파일 업로드", "직접 입력"],
-        horizontal=True
-    )
-    
-    if input_method == "CSV 파일 업로드":
-        st.markdown("### 📁 CSV 파일 업로드")
-        
-        # CSV 템플릿 다운로드
-        template_df = pd.DataFrame({
-            "작업활동": [
-                "임시 현장 저장소에서 포크리프트를 이용한 철골 구조재 하역작업",
-                "콘크리트/CMU 블록 설치 작업",
-                "굴착 및 되메우기 작업"
-            ]
-        })
-        
-        template_csv = template_df.to_csv(index=False, encoding='utf-8-sig')
-        st.download_button(
-            "📥 CSV 템플릿 다운로드",
-            data=template_csv,
-            file_name="작업활동_템플릿.csv",
-            mime="text/csv"
-        )
-        
-        # 파일 업로드
-        uploaded_file = st.file_uploader(
-            "CSV 파일을 업로드하세요 (작업활동 열 포함)",
-            type=['csv'],
-            help="CSV 파일에는 '작업활동' 열이 포함되어야 합니다."
-        )
-        
-        if uploaded_file is not None:
-            try:
-                upload_df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
-                st.dataframe(upload_df, use_container_width=True)
-                
-                if '작업활동' in upload_df.columns:
-                    activities_list = upload_df['작업활동'].dropna().tolist()
-                    st.success(f"{len(activities_list)}개의 작업활동이 발견되었습니다.")
-                else:
-                    st.error("CSV 파일에 '작업활동' 열이 없습니다.")
-                    activities_list = []
-            except Exception as e:
-                st.error(f"CSV 파일 읽기 오류: {str(e)}")
-                activities_list = []
-        else:
-            activities_list = []
-    
-    else:  # 직접 입력
-        st.markdown("### ✏️ 작업활동 직접 입력")
-        
-        activities_text = st.text_area(
-            "작업활동을 한 줄에 하나씩 입력하세요:",
-            placeholder="임시 현장 저장소에서 포크리프트를 이용한 철골 구조재 하역작업\n콘크리트/CMU 블록 설치 작업\n굴착 및 되메우기 작업",
-            height=200
-        )
-        
-        activities_list = [line.strip() for line in activities_text.split('\n') if line.strip()]
-        
-        if activities_list:
-            st.success(f"{len(activities_list)}개의 작업활동이 입력되었습니다.")
-            with st.expander("입력된 작업활동 확인"):
-                for i, activity in enumerate(activities_list, 1):
-                    st.write(f"{i}. {activity}")
-
-    # 다중 계산 실행
-    if activities_list and st.button("🚀 다중 위험성 평가 실행", type="primary"):
-        if not api_key:
-            st.warning("OpenAI API 키를 입력하세요.")
-        elif ss.index is None:
-            st.warning("먼저 데이터를 로드해주세요.")
-        else:
-            # 진행 상황 표시
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            results = []
-            
-            for i, activity in enumerate(activities_list):
-                status_text.text(f"처리 중: {i+1}/{len(activities_list)} - {activity[:50]}...")
-                progress_bar.progress((i + 1) / len(activities_list))
-                
-                try:
-                    # 각 작업활동에 대해 위험성 평가 수행
-                    q_emb = embed_texts_with_openai([activity], api_key=api_key)[0]
-                    D, I = ss.index.search(np.array([q_emb], dtype='float32'), k=3)
-                    sim_docs = ss.retriever_pool_df.iloc[I[0]]
-
-                    # 유해위험요인 예측
-                    hazard_prompt = construct_prompt_phase1_hazard(sim_docs, activity, ss.language)
-                    hazard = generate_with_gpt(hazard_prompt, api_key, ss.language)
-
-                    # 위험도 평가
-                    risk_prompt = construct_prompt_phase1_risk(sim_docs, activity, hazard, ss.language)
-                    risk_json = generate_with_gpt(risk_prompt, api_key, ss.language)
-                    
-                    parse_result = parse_gpt_output_phase1(risk_json, ss.language)
-                    if parse_result:
-                        freq, intensity, T = parse_result
-                        grade = determine_grade(T)
-                        
-                        # 개선대책 생성
-                        improvement_prompt = construct_prompt_phase2(
-                            sim_docs, activity, hazard, freq, intensity, T, ss.language
-                        )
-                        improvement_response = generate_with_gpt(improvement_prompt, api_key, ss.language)
-                        parsed_improvement = parse_gpt_output_phase2(improvement_response, ss.language)
-                        
-                        if parsed_improvement:
-                            improvement_plan = parsed_improvement.get('improvement', '')
-                            improved_T = parsed_improvement.get('improved_t', T//2)
-                            rrr = compute_rrr(T, improved_T)
-                        else:
-                            improvement_plan = "개선대책 생성 실패"
-                            improved_T = T//2
-                            rrr = 50.0
-                    else:
-                        freq, intensity, T, grade = 3, 3, 9, 'C'
-                        improvement_plan = "위험도 평가 실패"
-                        improved_T = T//2
-                        rrr = 50.0
-                        hazard = "위험요인 예측 실패"
-                    
-                    # 결과 저장
-                    results.append({
-                        "번호": i + 1,
-                        "작업활동": activity,
-                        "유해위험요인": hazard,
-                        "빈도": freq,
-                        "강도": intensity,
-                        "T값": T,
-                        "위험등급": grade,
-                        "개선대책": improvement_plan,
-                        "개선 후 T값": improved_T,
-                        "위험감소율(%)": f"{rrr:.1f}"
-                    })
-                    
-                except Exception as e:
-                    # 오류 발생 시 기본값으로 처리
-                    results.append({
-                        "번호": i + 1,
-                        "작업활동": activity,
-                        "유해위험요인": f"처리 오류: {str(e)}",
-                        "빈도": 3,
-                        "강도": 3,
-                        "T값": 9,
-                        "위험등급": 'C',
-                        "개선대책": "오류로 인한 기본 대책",
-                        "개선 후 T값": 4,
-                        "위험감소율(%)": "50.0"
-                    })
-            
-            # 결과 표시
-            status_text.text("처리 완료!")
-            progress_bar.progress(1.0)
-            
-            st.markdown("## 📊 다중 평가 결과")
-            
-            results_df = pd.DataFrame(results)
-            st.dataframe(results_df, use_container_width=True)
-            
-            # 통계 요약
-            st.markdown("### 📈 평가 결과 통계")
-            
-            col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
-            
-            with col_stat1:
-                avg_t = results_df['T값'].mean()
-                st.metric("평균 T값", f"{avg_t:.1f}")
-            
-            with col_stat2:
-                high_risk_count = len(results_df[results_df['위험등급'].isin(['A', 'B'])])
-                st.metric("고위험 항목", f"{high_risk_count}개")
-            
-            with col_stat3:
-                avg_reduction = pd.to_numeric(results_df['위험감소율(%)'], errors='coerce').mean()
-                st.metric("평균 감소율", f"{avg_reduction:.1f}%")
-            
-            with col_stat4:
-                total_items = len(results_df)
-                st.metric("총 평가 항목", f"{total_items}개")
-            
-            # 위험등급별 분포
-            grade_dist = results_df['위험등급'].value_counts().sort_index()
-            
-            col_chart1, col_chart2 = st.columns(2)
-            
-            with col_chart1:
-                st.markdown("#### 위험등급별 분포")
-                st.bar_chart(grade_dist)
-            
-            with col_chart2:
-                st.markdown("#### T값 분포")
-                st.bar_chart(results_df['T값'].value_counts().sort_index())
-            
-            # 다중 결과 Excel 다운로드
-            def create_multi_excel():
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-                    # 전체 결과
-                    results_df.to_excel(writer, sheet_name="전체결과", index=False)
-                    
-                    # 고위험 항목만
-                    high_risk_df = results_df[results_df['위험등급'].isin(['A', 'B'])]
-                    if not high_risk_df.empty:
-                        high_risk_df.to_excel(writer, sheet_name="고위험항목", index=False)
-                    
-                    # 통계 요약
-                    stats_df = pd.DataFrame({
-                        "구분": ["전체 항목 수", "평균 T값", "고위험 항목 수", "평균 위험감소율"],
-                        "값": [
-                            total_items,
-                            f"{avg_t:.1f}",
-                            high_risk_count,
-                            f"{avg_reduction:.1f}%"
-                        ]
-                    })
-                    stats_df.to_excel(writer, sheet_name="통계요약", index=False)
-                
-                return output.getvalue()
-            
-            excel_data = create_multi_excel()
-            st.download_button(
-                "📥 다중 평가 결과 Excel 다운로드",
-                data=excel_data,
-                file_name=f"multi_risk_assessment_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-            
-            # 세션에 결과 저장
-            ss.calculation_results = results
 
 # ------------------- 푸터 ------------------------
 st.markdown('<hr style="margin-top: 3rem;">', unsafe_allow_html=True)
