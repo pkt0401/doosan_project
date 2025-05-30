@@ -1237,33 +1237,30 @@ with tabs[1]:
                         st.markdown("### 🔍 유사한 사례")
                         
                         similar_records = []
-                        for i, (_, doc) in enumerate(sim_docs.iterrows(), 1):
+                        for i in range(len(sim_docs)):
+                            doc = sim_docs.iloc[i]
                             plan, imp_f, imp_i, imp_t = _extract_improvement_info(doc)
-                            
-                            # 사례 표시
-                            with st.expander(f"사례 {i}: {doc['작업활동 및 내용'][:50]}..."):
-                                col_case1, col_case2 = st.columns(2)
-                                
-                                with col_case1:
+                    
+                            with st.expander(f"사례 {i+1}: {doc['작업활동 및 내용'][:30]}…"):
+                                col1, col2 = st.columns(2)
+                                with col1:
                                     st.write(f"**작업활동:** {doc['작업활동 및 내용']}")
                                     st.write(f"**유해위험요인:** {doc['유해위험요인 및 환경측면 영향']}")
                                     st.write(f"**위험도:** 빈도 {doc['빈도']}, 강도 {doc['강도']}, T값 {doc['T']} (등급 {doc['등급']})")
-                                
-                                with col_case2:
-                                    st.write(f"**개선대책:** {plan if plan else '미제공'}")
-                                    if plan:
-                                        st.write(f"**개선 후:** F={imp_f}, I={imp_i}, T={imp_t}")
-                            
-                            # 엑셀용 레코드
+                                with col2:
+                                    st.write(f"**개선대책:**")
+                                    # 줄바꿈 처리
+                                    st.markdown(re.sub(r'(\d\))\s*', r'\1  \n', plan))
+                    
+                            # 엑셀용 데이터 축적
                             similar_records.append({
-                                "No": i,
                                 "작업활동": doc['작업활동 및 내용'],
                                 "유해위험요인": doc['유해위험요인 및 환경측면 영향'],
                                 "빈도": doc['빈도'],
                                 "강도": doc['강도'],
                                 "T": doc['T'],
                                 "위험등급": doc['등급'],
-                                "개선대책": plan,
+                                "개선대책": plan
                             })
 
                     # Phase 2 결과 표시
