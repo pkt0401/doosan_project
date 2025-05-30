@@ -9,8 +9,6 @@ from PIL import Image
 from sklearn.model_selection import train_test_split
 import json
 from datetime import datetime
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 # 언어 설정 텍스트 정의
 system_texts = {
@@ -564,40 +562,27 @@ def export_to_excel(data, filename="risk_assessment_results.xlsx"):
         return None
 
 def create_risk_visualization(assessment_history):
-    """위험도 시각화 차트 생성 (matplotlib 사용)"""
+    """위험도 시각화 차트 생성 (Streamlit 내장 차트 사용)"""
     if not assessment_history:
         return None
     
     df = pd.DataFrame(assessment_history)
     
-    # 위험등급 분포 차트
-    fig1, ax1 = plt.subplots(figsize=(8, 6))
+    # 위험등급 분포 데이터
+    grade_dist = None
     if 'grade' in df.columns:
         grade_counts = df['grade'].value_counts()
-        colors = ['#FF4444', '#FF8800', '#FFCC00', '#88CC00', '#44CC44']
-        ax1.pie(grade_counts.values, labels=grade_counts.index, autopct='%1.1f%%', 
-                colors=colors[:len(grade_counts)])
-        ax1.set_title('위험등급 분포', fontsize=14, fontweight='bold')
+        grade_dist = grade_counts
     
-    # 월별 추이 차트
-    fig2, ax2 = plt.subplots(figsize=(10, 6))
+    # 월별 추이 데이터
+    monthly_trend = None
     if 'timestamp' in df.columns:
         df['date'] = pd.to_datetime(df['timestamp'])
-        df['month'] = df['date'].dt.to_period('M')
+        df['month'] = df['date'].dt.to_period('M').astype(str)
         monthly_counts = df.groupby('month').size()
-        
-        ax2.plot(range(len(monthly_counts)), monthly_counts.values, marker='o', linewidth=2, markersize=8)
-        ax2.set_title('월별 평가 건수 추이', fontsize=14, fontweight='bold')
-        ax2.set_xlabel('월')
-        ax2.set_ylabel('평가 건수')
-        ax2.grid(True, alpha=0.3)
-        
-        # x축 레이블 설정
-        ax2.set_xticks(range(len(monthly_counts)))
-        ax2.set_xticklabels([str(m) for m in monthly_counts.index], rotation=45)
+        monthly_trend = monthly_counts
     
-    plt.tight_layout()
-    return fig1, fig2
+    return grade_dist, monthly_trend
 
 # Phase 1 관련 함수들
 def construct_prompt_phase1_hazard(retrieved_docs, activity_text, language="Korean"):
@@ -1691,17 +1676,34 @@ with tabs[4]:
         charts = create_risk_visualization(st.session_state.assessment_history)
         
         if charts:
-            fig_grade, fig_trend = charts
+            grade_dist, monthly_trend = charts
             
             col1, col2 = st.columns(2)
             
             with col1:
                 st.markdown("#### 📊 위험등급 분포")
-                st.pyplot(fig_grade)
+                if grade_dist is not None:
+                    # Streamlit 내장 바차트 사용
+                    st.bar_chart(grade_dist)
+                    
+                    # 상세 정보 표시
+                    for grade, count in grade_dist.items():
+                        percentage = (count / sum(grade_dist.values)) * 100
+                        color = {'A': '🔴', 'B': '🟠', 'C': '🟡', 'D': '🟢', 'E': '🔵'}.get(grade, '⚪')
+                        st.write(f"{color} **{grade}등급**: {count}건 ({percentage:.1f}%)")
             
             with col2:
                 st.markdown("#### 📈 월별 평가 추이")
-                st.pyplot(fig_trend)
+                if monthly_trend is not None:
+                    # Streamlit 내장 라인차트 사용
+                    st.line_chart(monthly_trend)
+                    
+                    # 통계 정보
+                    st.write(f"📅 **총 기간**: {len(monthly_trend)}개월")
+                    st.write(f"📊 **월평균**: {monthly_trend.mean():.1f}건")
+                    st.write(f"📈 **최대**: {monthly_trend.max()}건")
+                else:
+                    st.write("월별 데이터가 충분하지 않습니다.")
         
         # 상세 분석
         history_df = pd.DataFrame(st.session_state.assessment_history)
@@ -1722,14 +1724,15 @@ with tabs[4]:
                 st.markdown(f"- **최저 T값:** {t_values.min()}")
                 st.markdown(f"- **표준편차:** {t_values.std():.2f}")
                 
-                # T값 히스토그램
-                fig_hist, ax_hist = plt.subplots(figsize=(8, 5))
-                ax_hist.hist(history_df['T'], bins=10, alpha=0.7, color='skyblue', edgecolor='black')
-                ax_hist.set_title('T값 분포')
-                ax_hist.set_xlabel('T값')
-                ax_hist.set_ylabel('빈도')
-                ax_hist.grid(True, alpha=0.3)
-                st.pyplot(fig_hist)
+                # T값 히스토그램 (Streamlit 내장 차트 사용)
+                t_bins = pd.cut(history_df['T'], bins=10)
+                t_hist = t_bins.value_counts().sort_index()
+                st.bar_chart(t_hist)
+                
+                # T값 구간별 상세 정보
+                st.write("**T값 구간별 분포:**")
+                for interval, count in t_hist.items():
+                    st.write(f"• {interval}: {count}건")
             
             st.markdown('</div>', unsafe_allow_html=True)
         
@@ -1746,13 +1749,18 @@ with tabs[4]:
                     st.markdown(f"- **최고 개선율:** {reduction_rates.max():.1f}%")
                     st.markdown(f"- **최저 개선율:** {reduction_rates.min():.1f}%")
                     
-                    # 개선율 분포
-                    fig_improvement, ax_improvement = plt.subplots(figsize=(8, 5))
-                    ax_improvement.boxplot(reduction_rates, vert=True)
-                    ax_improvement.set_title('개선율 분포')
-                    ax_improvement.set_ylabel('개선율 (%)')
-                    ax_improvement.grid(True, alpha=0.3)
-                    st.pyplot(fig_improvement)
+                    # 개선율 분포 (간단한 통계로 대체)
+                    st.write("**개선율 통계:**")
+                    st.write(f"• 평균: {reduction_rates.mean():.1f}%")
+                    st.write(f"• 중앙값: {reduction_rates.median():.1f}%")
+                    st.write(f"• 최소값: {reduction_rates.min():.1f}%")
+                    st.write(f"• 최대값: {reduction_rates.max():.1f}%")
+                    st.write(f"• 표준편차: {reduction_rates.std():.1f}%")
+                    
+                    # 개선율 분포를 구간별로 표시
+                    reduction_bins = pd.cut(reduction_rates, bins=[0, 25, 50, 75, 100], labels=['낮음(0-25%)', '보통(25-50%)', '높음(50-75%)', '매우높음(75-100%)'])
+                    reduction_dist = reduction_bins.value_counts()
+                    st.bar_chart(reduction_dist)
                 else:
                     st.markdown("개선대책 데이터가 없습니다.")
             
@@ -1792,16 +1800,15 @@ with tabs[4]:
             
             # 작업유형별 위험도 차트
             if len(work_type_stats) > 1:
-                fig_worktype, ax_worktype = plt.subplots(figsize=(10, 6))
-                ax_worktype.bar(work_type_stats.index, work_type_stats['평균_T값'], 
-                               color='lightcoral', alpha=0.7, edgecolor='black')
-                ax_worktype.set_title('작업유형별 평균 위험도')
-                ax_worktype.set_xlabel('작업유형')
-                ax_worktype.set_ylabel('평균 T값')
-                ax_worktype.grid(True, alpha=0.3)
-                plt.xticks(rotation=45)
-                plt.tight_layout()
-                st.pyplot(fig_worktype)
+                st.markdown("#### 📋 작업유형별 평균 위험도")
+                # Streamlit 내장 바차트 사용
+                st.bar_chart(work_type_stats['평균_T값'])
+                
+                # 상세 정보 테이블
+                st.write("**작업유형별 상세 통계:**")
+                display_stats = work_type_stats.copy()
+                display_stats.index.name = '작업유형'
+                st.dataframe(display_stats)
         
         # 데이터 내보내기
         st.markdown("### 📤 데이터 내보내기")
