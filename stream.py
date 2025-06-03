@@ -7,7 +7,12 @@ import os
 import io
 from PIL import Image
 from sklearn.model_selection import train_test_split
-from openrouter import OpenRouter
+import openai
+
+# -------------------------------------------------
+# OpenRouter 엔드포인트로 설정
+# -------------------------------------------------
+openai.api_base = "https://openrouter.ai/api/v1"
 
 # ------------- 시스템 다국어 텍스트 -----------------
 system_texts = {
@@ -89,7 +94,7 @@ system_texts = {
         "t_value_change_header": "위험도(T값) 변화",
         "before_improvement": "개선 전 T값:",
         "after_improvement": "개선 후 T값:",
-        "parsing_error_improvement": "위험성 평가 결과를 파싱할 수 없습니다.",
+        "parsing_error_improvement": "개선대책 생성 결과를 파싱할 수 없습니다.",
         "excel_export": "📥 결과 Excel 다운로드",
         "risk_classification": "위험도 분류",
         "supported_languages": "지원 언어",
@@ -277,7 +282,7 @@ system_texts = {
         "supported_languages": "支持语言",
         "languages_count": "3种语言",
         "languages_detail": "韩/英/中",
-        "assessment_phases": "评估阶段", 
+        "assessment_phases": "评估阶段",
         "phases_count": "2个阶段",
         "phases_detail": "评估+改进",
         "risk_grades": "风险等级",
@@ -338,7 +343,7 @@ tabs = st.tabs([texts["tab_overview"], "Risk Assessment ✨"])
 # -----------------------------------------------------------------------------  
 
 def determine_grade(value: int):
-    """위험도 등급 분류 개선"""
+    """위험도 등급 분류"""
     if 16 <= value <= 25:
         return 'A'
     if 10 <= value <= 15:
@@ -354,11 +359,11 @@ def determine_grade(value: int):
 def get_grade_color(grade):
     """위험등급별 색상 반환"""
     colors = {
-        'A': '#ff1744',  # 빨강
-        'B': '#ff9800',  # 주황
-        'C': '#ffc107',  # 노랑
-        'D': '#4caf50',  # 초록
-        'E': '#2196f3',  # 파랑
+        'A': '#ff1744',
+        'B': '#ff9800',
+        'C': '#ffc107',
+        'D': '#4caf50',
+        'E': '#2196f3',
     }
     return colors.get(grade, '#gray')
 
@@ -370,7 +375,7 @@ def compute_rrr(original_t, improved_t):
 
 def _extract_improvement_info(row):
     """
-    유사 사례 한 건에서 - 개선대책 / 개선 후 빈도·강도·T 값을 최대한 찾아 반환
+    유사 사례 한 건에서 - 개선대책 / 개선 후 빈도·강도·T 값을 추출
     """
     # ① 개선대책
     plan_cols = [c for c in row.index if re.search(r'개선대책|Improvement|改进', c, re.I)]
@@ -389,7 +394,6 @@ def _extract_improvement_info(row):
             imp_f, imp_i, imp_t = int(row[f]), int(row[i]), int(row[t])
             break
 
-    # 값이 없으면 원래 값에서 감소된 값으로 추정
     if imp_f is None:
         orig_f, orig_i = int(row['빈도']), int(row['강도'])
         imp_f = max(1, orig_f - 1)
@@ -400,22 +404,18 @@ def _extract_improvement_info(row):
 
 @st.cache_data(show_spinner=False)
 def load_data(selected_dataset_name: str):
-    """향상된 데이터 로딩 함수"""
+    """데이터 로드 및 전처리"""
     try:
-        # Excel 파일 읽기 시 여러 시트 처리 가능
         if os.path.exists(f"{selected_dataset_name}.xlsx"):
             df = pd.read_excel(f"{selected_dataset_name}.xlsx")
         else:
             return create_sample_data()
 
-        # 1) 불필요 열 제거
         if "삭제 Del" in df.columns:
             df.drop(["삭제 Del"], axis=1, inplace=True)
 
-        # 2) 빈 행 제거 (모든 값이 NaN인 행)
         df = df.dropna(how='all')
 
-        # 3) 핵심 열 이름 통일 및 정리
         column_mapping = {
             "작업활동 및 내용\nWork & Contents": "작업활동 및 내용",
             "유해위험요인 및 환경측면 영향\nHazard & Risk": "유해위험요인 및 환경측면 영향",
@@ -424,23 +424,19 @@ def load_data(selected_dataset_name: str):
         }
         df.rename(columns=column_mapping, inplace=True)
 
-        # 빈도, 강도 열 식별 및 변환
         numeric_columns = ['빈도', '강도']
         for col in numeric_columns:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        # 4) 필수 열이 없는 경우 기본값 설정
         if '빈도' not in df.columns:
             df['빈도'] = 3
         if '강도' not in df.columns:
             df['강도'] = 3
 
-        # 5) T, 등급 계산
         df["T"] = df["빈도"] * df["강도"]
         df["등급"] = df["T"].apply(determine_grade)
 
-        # 6) 개선대책 열이 없는 경우 기본값 설정
         if "개선대책" not in df.columns:
             alt_cols = [c for c in df.columns if "개선" in c or "대책" in c or "Corrective" in c]
             if alt_cols:
@@ -448,7 +444,6 @@ def load_data(selected_dataset_name: str):
             else:
                 df["개선대책"] = "안전 교육 실시 및 보호구 착용"
 
-        # 7) 최종 열 정리
         required_cols = [
             "작업활동 및 내용",
             "유해위험요인 및 환경측면 영향",
@@ -462,7 +457,6 @@ def load_data(selected_dataset_name: str):
         final_cols = [col for col in required_cols if col in df.columns]
         df = df[final_cols]
 
-        # 8) 빈 값 처리
         df = df.fillna({
             "작업활동 및 내용": "일반 작업",
             "유해위험요인 및 환경측면 영향": "일반적 위험",
@@ -516,9 +510,11 @@ def create_sample_data():
     df["등급"] = df["T"].apply(determine_grade)
     return df
 
-def embed_texts_with_openrouter(texts, api_key, model="openai/text-embedding-3-large"):
-    """OpenRouter를 이용한 텍스트 임베딩 생성"""
-    client = OpenRouter(api_key=api_key)
+def embed_texts_with_openai(texts, api_key, model="text-embedding-3-large"):
+    """OpenRouter (openai.api_base) 를 이용한 텍스트 임베딩 생성"""
+    if api_key:
+        openai.api_key = api_key
+
     embeddings = []
     batch_size = 10
 
@@ -526,22 +522,23 @@ def embed_texts_with_openrouter(texts, api_key, model="openai/text-embedding-3-l
         batch_texts = texts[i:i+batch_size]
         try:
             processed_texts = [str(txt).replace("\n", " ").strip() for txt in batch_texts]
-            resp = client.embeddings.create(
-                model=model,
+            resp = openai.Embedding.create(
+                model=f"openai/{model}",
                 input=processed_texts
             )
             for item in resp["data"]:
                 embeddings.append(item["embedding"])
         except Exception as e:
-            st.error(f"임베딩 생성 중 오류: {str(e)}")
+            st.error(f"임베딩 생성 중 오류: {e}")
             for _ in batch_texts:
                 embeddings.append([0] * 1536)
-
     return embeddings
 
-def generate_with_openrouter(prompt, api_key, language, model="gpt-4o", max_retries=3):
-    """OpenRouter를 이용한 GPT 생성 함수"""
-    client = OpenRouter(api_key=api_key)
+def generate_with_gpt(prompt, api_key, language, model="gpt-4o", max_retries=3):
+    """OpenRouter (openai.api_base) 를 이용한 GPT 생성 함수"""
+    if api_key:
+        openai.api_key = api_key
+
     sys_prompts = {
         "Korean": "당신은 건설 현장 위험성 평가 전문가입니다. 정확하고 실용적인 한국어 답변을 제공하세요.",
         "English": "You are a construction site risk assessment expert. Provide accurate and practical responses in English.",
@@ -550,11 +547,11 @@ def generate_with_openrouter(prompt, api_key, language, model="gpt-4o", max_retr
 
     for attempt in range(max_retries):
         try:
-            resp = client.chat.completions.create(
-                model=model,
+            resp = openai.ChatCompletion.create(
+                model=f"openai/{model}",
                 messages=[
                     {"role": "system", "content": sys_prompts.get(language, sys_prompts['Korean'])},
-                    {"role": "user", "content": prompt}
+                    {"role": "user",   "content": prompt}
                 ],
                 temperature=0.1,
                 max_tokens=500,
@@ -563,7 +560,7 @@ def generate_with_openrouter(prompt, api_key, language, model="gpt-4o", max_retr
             return resp['choices'][0]['message']['content'].strip()
         except Exception as e:
             if attempt == max_retries - 1:
-                st.error(f"GPT 호출 오류 (시도 {attempt + 1}/{max_retries}): {str(e)}")
+                st.error(f"GPT 호출 오류 (시도 {attempt + 1}/{max_retries}): {e}")
                 return ""
             else:
                 st.warning(f"GPT 호출 재시도 중... ({attempt + 1}/{max_retries})")
@@ -572,7 +569,7 @@ def generate_with_openrouter(prompt, api_key, language, model="gpt-4o", max_retr
 # ----------------- 프롬프트 생성 함수들 (변경 없음) -----------------
 
 def construct_prompt_phase1_hazard(retrieved_docs, activity_text, language="Korean"):
-    """향상된 유해위험요인 예측 프롬프트"""
+    """유해위험요인 예측 프롬프트"""
     prompt_templates = {
         "Korean": {
             "intro": "건설 현장에서 다음과 같은 작업활동과 유해위험요인 사례들이 있습니다:\n\n",
@@ -610,7 +607,7 @@ def construct_prompt_phase1_hazard(retrieved_docs, activity_text, language="Kore
     return prompt
 
 def construct_prompt_phase1_risk(retrieved_docs, activity_text, hazard_text, language="Korean"):
-    """향상된 위험도 평가 프롬프트"""
+    """위험도 평가 프롬프트"""
     prompt_templates = {
         "Korean": {
             "intro": "건설 현장 위험성 평가 기준:\n- 빈도(1-5): 1=매우드물게, 2=드물게, 3=가끔, 4=자주, 5=매우자주\n- 강도(1-5): 1=경미한부상, 2=가벼운부상, 3=중간부상, 4=심각한부상, 5=사망\n- T값 = 빈도 × 강도\n\n참고 사례들:\n\n",
@@ -658,20 +655,18 @@ def construct_prompt_phase1_risk(retrieved_docs, activity_text, hazard_text, lan
     prompt += template["query_format"].format(
         activity=activity_text, hazard=hazard_text, json_format=json_format
     )
-
     return prompt
 
 def parse_gpt_output_phase1(gpt_output, language="Korean"):
-    """향상된 GPT 출력 파싱"""
+    """GPT 출력 파싱 (Phase 1)"""
     json_patterns = {
         "Korean": r'\{"빈도":\s*([1-5]),\s*"강도":\s*([1-5]),\s*"T":\s*([0-9]+)\}',
         "English": r'\{"frequency":\s*([1-5]),\s*"intensity":\s*([1-5]),\s*"T":\s*([0-9]+)\}',
-        "Chinese": r'\{"频率":\s*([1-5]),\s*"强도":\s*([1-5]),\s*"T":\s*([0-9]+)\}'
+        "Chinese": r'\{"频率":\s*([1-5]),\s*"强度":\s*([1-5]),\s*"T":\s*([0-9]+)\}'
     }
 
     pattern = json_patterns.get(language, json_patterns["Korean"])
     match = re.search(pattern, gpt_output)
-
     if match:
         pred_frequency = int(match.group(1))
         pred_intensity = int(match.group(2))
@@ -695,7 +690,7 @@ def parse_gpt_output_phase1(gpt_output, language="Korean"):
     return None
 
 def construct_prompt_phase2(retrieved_docs, activity_text, hazard_text, freq, intensity, T, target_language="Korean"):
-    """향상된 개선대책 생성 프롬프트"""
+    """개선대책 생성 프롬프트"""
     example_section = ""
     examples_added = 0
 
@@ -798,11 +793,9 @@ Output (Improvement Plan and Risk Reduction) JSON format:
 }}
 
 """
-
             examples_added += 1
             if examples_added >= 3:
                 break
-
         except Exception:
             continue
 
@@ -823,7 +816,6 @@ Output (Improvement Plan and Risk Reduction) JSON format:
   "개선 후 T": 2,
   "T 감소율": 83.33
 }
-
 """
         elif target_language == "English":
             example_section = """
@@ -841,7 +833,6 @@ Output (Improvement Plan and Risk Reduction) JSON format:
   "improved_T": 2,
   "reduction_rate": 83.33
 }
-
 """
         else:  # Chinese
             example_section = """
@@ -859,7 +850,6 @@ Output (Improvement Plan and Risk Reduction) JSON format:
   "改进后T值": 2,
   "T值降低率": 83.33
 }
-
 """
 
     json_keys = {
@@ -933,7 +923,7 @@ Output (Improvement Plan and Risk Reduction) JSON format:
     return prompt
 
 def parse_gpt_output_phase2(gpt_output, language="Korean"):
-    """향상된 Phase 2 출력 파싱"""
+    """Phase 2 출력 파싱"""
     try:
         json_match = re.search(r'```json\s*(.*?)\s*```', gpt_output, re.DOTALL)
         if json_match:
@@ -993,7 +983,7 @@ def parse_gpt_output_phase2(gpt_output, language="Korean"):
         return mapped_result
 
     except Exception as e:
-        st.error(f"개선대책 파싱 중 오류 발생: {str(e)}")
+        st.error(f"개선대책 파싱 중 오류 발생: {e}")
         st.write("원본 GPT 응답:", gpt_output)
         return {
             "improvement": "안전 교육 실시 및 보호구 착용 의무화",
@@ -1010,10 +1000,8 @@ with tabs[0]:
     st.markdown(f'<div class="sub-header">{texts["overview_header"]}</div>', unsafe_allow_html=True)
 
     col_overview, col_features = st.columns([3, 2])
-
     with col_overview:
         st.markdown(f"<div class='info-text'>{texts['overview_text']}</div>", unsafe_allow_html=True)
-
         col_metric1, col_metric2, col_metric3 = st.columns(3)
         with col_metric1:
             st.metric(texts["supported_languages"], texts["languages_count"], texts["languages_detail"])
@@ -1062,7 +1050,7 @@ with tabs[1]:
                     max_texts = min(len(to_embed), 30)
 
                     st.info(texts['demo_limit_info'].format(max_texts=max_texts))
-                    embeds = embed_texts_with_openrouter(to_embed[:max_texts], api_key=api_key)
+                    embeds = embed_texts_with_openai(to_embed[:max_texts], api_key=api_key)
 
                     vecs = np.array(embeds, dtype='float32')
                     dim = vecs.shape[1]
@@ -1077,7 +1065,7 @@ with tabs[1]:
                     with st.expander("📊 로드된 데이터 미리보기"):
                         st.dataframe(df.head(), use_container_width=True)
                 except Exception as e:
-                    st.error(f"데이터 로딩 중 오류가 발생했습니다: {str(e)}")
+                    st.error(f"데이터 로딩 중 오류가 발생했습니다: {e}")
 
     st.divider()
     st.markdown("### 🔍 위험성 평가 수행")
@@ -1106,7 +1094,7 @@ if run_button and activity:
         with st.spinner("위험성 평가를 수행하는 중..."):
             try:
                 # === Phase 1: Risk Assessment ===
-                q_emb_list = embed_texts_with_openrouter([activity], api_key=api_key)
+                q_emb_list = embed_texts_with_openai([activity], api_key=api_key)
                 q_emb = q_emb_list[0]
                 D, I = ss.index.search(
                     np.array([q_emb], dtype='float32'),
@@ -1115,10 +1103,10 @@ if run_button and activity:
                 sim_docs = ss.retriever_pool_df.iloc[I[0]]
 
                 hazard_prompt = construct_prompt_phase1_hazard(sim_docs, activity, result_language)
-                hazard = generate_with_openrouter(hazard_prompt, api_key, result_language)
+                hazard = generate_with_gpt(hazard_prompt, api_key, result_language)
 
                 risk_prompt = construct_prompt_phase1_risk(sim_docs, activity, hazard, result_language)
-                risk_json = generate_with_openrouter(risk_prompt, api_key, result_language)
+                risk_json = generate_with_gpt(risk_prompt, api_key, result_language)
 
                 parse_result = parse_gpt_output_phase1(risk_json, result_language)
                 if not parse_result:
@@ -1133,7 +1121,7 @@ if run_button and activity:
                 improvement_prompt = construct_prompt_phase2(
                     sim_docs, activity, hazard, freq, intensity, T, result_language
                 )
-                improvement_response = generate_with_openrouter(improvement_prompt, api_key, result_language)
+                improvement_response = generate_with_gpt(improvement_prompt, api_key, result_language)
 
                 parsed_improvement = parse_gpt_output_phase2(improvement_response, result_language)
                 if not parsed_improvement:
