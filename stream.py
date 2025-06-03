@@ -556,7 +556,7 @@ def generate_with_gpt(prompt, api_key, language, max_retries=3):
     for attempt in range(max_retries):
         try:
             resp = openai.ChatCompletion.create(
-                model="gpt-4o-mini", 
+                model="gpt-4o", 
                 messages=[
                     {"role": "system", "content": sys_prompts.get(language, sys_prompts['Korean'])},
                     {"role": "user", "content": prompt}
