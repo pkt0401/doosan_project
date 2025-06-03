@@ -502,7 +502,6 @@ def embed_texts_with_openai(texts, api_key, model="text-embedding-3-large"):
             for item in resp["data"]:
                 embeddings.append(item["embedding"])
         except Exception:
-            # 에러가 발생해도 사용자에게 반복적으로 보여주지 않고, 대신 디폴트(0으로 채운) 임베딩을 추가
             for _ in batch_texts:
                 embeddings.append([0] * 1536)
 
