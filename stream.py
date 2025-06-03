@@ -328,7 +328,13 @@ for key, default in {
 # ----------------- 언어 선택 -----------------
 col0, colLang = st.columns([6, 1])
 with colLang:
-    lang = st.selectbox("", list(system_texts.keys()), index=list(system_texts.keys()).index(ss.language))
+    # 빈 라벨을 피하기 위해 label_visibility="hidden" 사용
+    lang = st.selectbox(
+        "언어 선택",
+        list(system_texts.keys()),
+        index=list(system_texts.keys()).index(ss.language),
+        label_visibility="hidden"
+    )
     ss.language = lang
 texts = system_texts[ss.language]
 
@@ -467,7 +473,7 @@ def load_data(selected_dataset_name: str):
         return df
 
     except Exception as e:
-        st.warning(f"데이터 로딩 중 오류가 발생했습니다: {str(e)}")
+        st.warning(f"데이터 로딩 중 오류가 발생했습니다: {e}")
         st.info("샘플 데이터를 사용합니다.")
         return create_sample_data()
 
@@ -1081,7 +1087,11 @@ with tabs[1]:
     with col_options1:
         include_similar_cases = st.checkbox("유사 사례 포함", value=True)
     with col_options2:
-        result_language = st.selectbox("결과 언어", ["Korean", "English", "Chinese"], index=["Korean", "English", "Chinese"].index(ss.language))
+        result_language = st.selectbox(
+            "결과 언어",
+            ["Korean", "English", "Chinese"],
+            index=["Korean", "English", "Chinese"].index(ss.language)
+        )
 
     run_button = st.button("🚀 위험성 평가 실행", type="primary", use_container_width=True)
 
