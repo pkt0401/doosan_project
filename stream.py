@@ -2,12 +2,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import faiss
-import openai
 import re
 import os
 import io
 from PIL import Image
 from sklearn.model_selection import train_test_split
+from openrouter import OpenRouter
 
 # ------------- 시스템 다국어 텍스트 -----------------
 system_texts = {
@@ -37,11 +37,11 @@ system_texts = {
         - 공종/공정별 최적 개선대책 데이터베이스 구축
         """,
         "phase1_header": "위험성 평가 자동화 (Phase 1)",
-        "api_key_label": "OpenAI API 키를 입력하세요:",
+        "api_key_label": "OpenRouter API 키를 입력하세요:",
         "dataset_label": "데이터셋 선택",
         "load_data_label": "데이터 로드 및 인덱스 구성",
         "load_data_btn": "데이터 로드 및 인덱스 구성",
-        "api_key_warning": "계속하려면 OpenAI API 키를 입력하세요.",
+        "api_key_warning": "계속하려면 OpenRouter API 키를 입력하세요.",
         "data_loading": "데이터를 불러오고 인덱스를 구성하는 중...",
         "demo_limit_info": "데모 목적으로 {max_texts}개의 텍스트만 임베딩합니다. 실제 환경에서는 전체 데이터를 처리해야 합니다.",
         "data_load_success": "데이터 로드 및 인덱스 구성 완료! (총 {max_texts}개 항목 처리)",
@@ -128,11 +128,11 @@ system_texts = {
         - Building a database of optimal improvement measures by work type/process
         """,
         "phase1_header": "Risk Assessment Automation (Phase 1)",
-        "api_key_label": "Enter OpenAI API Key:",
+        "api_key_label": "Enter OpenRouter API Key:",
         "dataset_label": "Select Dataset",
         "load_data_label": "Load Data and Configure Index",
         "load_data_btn": "Load Data and Configure Index",
-        "api_key_warning": "Please enter an OpenAI API key to continue.",
+        "api_key_warning": "Please enter an OpenRouter API key to continue.",
         "data_loading": "Loading data and configuring index...",
         "demo_limit_info": "For demo purposes, only embedding {max_texts} texts. In a real environment, all data should be processed.",
         "data_load_success": "Data load and index configuration complete! (Total {max_texts} items processed)",
@@ -153,7 +153,7 @@ system_texts = {
         """,
         "prediction_result_header": "Prediction Results",
         "activity_result": "Work Activity: {activity}",
-        "hazard_result": "Predicted Hazard: {hazard}", 
+        "hazard_result": "Predicted Hazard: {hazard}",
         "result_table_columns": ["Item", "Value"],
         "result_table_rows": ["Frequency", "Intensity", "T Value", "Risk Grade"],
         "parsing_error": "Unable to parse risk assessment results.",
@@ -190,7 +190,7 @@ system_texts = {
         "phases_count": "2 Phases",
         "phases_detail": "Assessment+Improvement",
         "risk_grades": "Risk Grades",
-        "grades_count": "5 Grades", 
+        "grades_count": "5 Grades",
         "grades_detail": "A~E"
     },
     "Chinese": {
@@ -219,11 +219,11 @@ system_texts = {
         - 建立按工作类型/工序的最佳改进措施数据库
         """,
         "phase1_header": "风险评估自动化 (第1阶段)",
-        "api_key_label": "输入OpenAI API密钥：",
+        "api_key_label": "输入OpenRouter API密钥：",
         "dataset_label": "选择数据集",
         "load_data_label": "加载数据和配置索引",
         "load_data_btn": "加载数据和配置索引",
-        "api_key_warning": "请输入OpenAI API密钥以继续。",
+        "api_key_warning": "请输入OpenRouter API密钥以继续。",
         "data_loading": "正在加载数据和配置索引...",
         "demo_limit_info": "出于演示目的，仅嵌入{max_texts}个文本。在实际环境中，应处理所有数据。",
         "data_load_success": "数据加载和索引配置完成！（共处理{max_texts}个项目）",
@@ -311,13 +311,17 @@ st.markdown("""
 # ----------------- 세션 상태 -----------------
 ss = st.session_state
 for key, default in {
-    "language":"Korean","index":None,"embeddings":None,
-    "retriever_pool_df":None,"last_assessment":None
+    "language": "Korean",
+    "index": None,
+    "embeddings": None,
+    "retriever_pool_df": None,
+    "last_assessment": None
 }.items():
-    if key not in ss: ss[key]=default
+    if key not in ss:
+        ss[key] = default
 
 # ----------------- 언어 선택 -----------------
-col0, colLang = st.columns([6,1])
+col0, colLang = st.columns([6, 1])
 with colLang:
     lang = st.selectbox("", list(system_texts.keys()), index=list(system_texts.keys()).index(ss.language))
     ss.language = lang
@@ -329,18 +333,23 @@ st.markdown(f'<div class="main-header">{texts["title"]}</div>', unsafe_allow_htm
 # ----------------- 탭 구성 -----------------
 tabs = st.tabs([texts["tab_overview"], "Risk Assessment ✨"])
 
-# -----------------------------------------------------------------------------
-# ---------------------------  공용 유틸리티 -----------------------------------
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
+# ---------------------------  공용 유틸리티 -----------------------------------  
+# -----------------------------------------------------------------------------  
 
 def determine_grade(value: int):
     """위험도 등급 분류 개선"""
-    if 16<=value<=25: return 'A'
-    if 10<=value<=15: return 'B'
-    if 5<=value<=9: return 'C'
-    if 3<=value<=4: return 'D'
-    if 1<=value<=2: return 'E'
-    return 'Unknown' if ss.language!='Korean' else '알 수 없음'
+    if 16 <= value <= 25:
+        return 'A'
+    if 10 <= value <= 15:
+        return 'B'
+    if 5 <= value <= 9:
+        return 'C'
+    if 3 <= value <= 4:
+        return 'D'
+    if 1 <= value <= 2:
+        return 'E'
+    return 'Unknown' if ss.language != 'Korean' else '알 수 없음'
 
 def get_grade_color(grade):
     """위험등급별 색상 반환"""
@@ -375,7 +384,7 @@ def _extract_improvement_info(row):
         ('改进后频率', '改进后强度', '改进后T值'),
     ]
     imp_f, imp_i, imp_t = None, None, None
-    for f,i,t in cand_sets:
+    for f, i, t in cand_sets:
         if f in row and i in row and t in row:
             imp_f, imp_i, imp_t = int(row[f]), int(row[i]), int(row[t])
             break
@@ -383,7 +392,6 @@ def _extract_improvement_info(row):
     # 값이 없으면 원래 값에서 감소된 값으로 추정
     if imp_f is None:
         orig_f, orig_i = int(row['빈도']), int(row['강도'])
-        # 개선 후 추정: 원래 값의 50-70% 범위
         imp_f = max(1, orig_f - 1)
         imp_i = max(1, orig_i - 1)
         imp_t = imp_f * imp_i
@@ -398,7 +406,6 @@ def load_data(selected_dataset_name: str):
         if os.path.exists(f"{selected_dataset_name}.xlsx"):
             df = pd.read_excel(f"{selected_dataset_name}.xlsx")
         else:
-            # 파일이 없으면 샘플 데이터 생성
             return create_sample_data()
 
         # 1) 불필요 열 제거
@@ -415,9 +422,8 @@ def load_data(selected_dataset_name: str):
             "피해형태 및 환경영향\nDamage & Effect": "피해형태 및 환경영향",
             "개선대책 및 세부관리방안\nCorrective Action": "개선대책"
         }
-        
         df.rename(columns=column_mapping, inplace=True)
-        
+
         # 빈도, 강도 열 식별 및 변환
         numeric_columns = ['빈도', '강도']
         for col in numeric_columns:
@@ -445,16 +451,14 @@ def load_data(selected_dataset_name: str):
         # 7) 최종 열 정리
         required_cols = [
             "작업활동 및 내용",
-            "유해위험요인 및 환경측면 영향", 
+            "유해위험요인 및 환경측면 영향",
             "피해형태 및 환경영향",
             "빈도",
-            "강도", 
+            "강도",
             "T",
             "등급",
             "개선대책"
         ]
-        
-        # 존재하는 열만 선택
         final_cols = [col for col in required_cols if col in df.columns]
         df = df[final_cols]
 
@@ -512,61 +516,51 @@ def create_sample_data():
     df["등급"] = df["T"].apply(determine_grade)
     return df
 
-def embed_texts_with_openai(texts, model="text-embedding-3-large", api_key=None):
-    """OpenAI를 이용한 텍스트 임베딩 생성"""
-    if api_key: 
-        openai.api_key = api_key
-    
+def embed_texts_with_openrouter(texts, api_key, model="openai/text-embedding-3-large"):
+    """OpenRouter를 이용한 텍스트 임베딩 생성"""
+    client = OpenRouter(api_key=api_key)
     embeddings = []
-    batch_size = 10  # 배치 처리로 효율성 향상
-    
+    batch_size = 10
+
     for i in range(0, len(texts), batch_size):
         batch_texts = texts[i:i+batch_size]
         try:
-            # 텍스트 전처리
             processed_texts = [str(txt).replace("\n", " ").strip() for txt in batch_texts]
-            
-            resp = openai.Embedding.create(
-                model=model, 
+            resp = client.embeddings.create(
+                model=model,
                 input=processed_texts
             )
-            
-            for j, item in enumerate(resp["data"]):
+            for item in resp["data"]:
                 embeddings.append(item["embedding"])
-                
         except Exception as e:
             st.error(f"임베딩 생성 중 오류: {str(e)}")
-            # 오류 시 더미 임베딩 추가
             for _ in batch_texts:
                 embeddings.append([0] * 1536)
-    
+
     return embeddings
 
-def generate_with_gpt(prompt, api_key, language, max_retries=3):
-    """향상된 GPT 생성 함수"""
-    if api_key: 
-        openai.api_key = api_key
-    
+def generate_with_openrouter(prompt, api_key, language, model="gpt-4o", max_retries=3):
+    """OpenRouter를 이용한 GPT 생성 함수"""
+    client = OpenRouter(api_key=api_key)
     sys_prompts = {
         "Korean": "당신은 건설 현장 위험성 평가 전문가입니다. 정확하고 실용적인 한국어 답변을 제공하세요.",
         "English": "You are a construction site risk assessment expert. Provide accurate and practical responses in English.",
         "Chinese": "您是建筑工地风险评估专家。请用中文提供准确实用的回答。"
     }
-    
+
     for attempt in range(max_retries):
         try:
-            resp = openai.ChatCompletion.create(
-                model="gpt-4o", 
+            resp = client.chat.completions.create(
+                model=model,
                 messages=[
                     {"role": "system", "content": sys_prompts.get(language, sys_prompts['Korean'])},
                     {"role": "user", "content": prompt}
-                ], 
-                temperature=0.1,  # 일관성을 위해 낮은 temperature
-                max_tokens=500,   # 토큰 제한 증가
+                ],
+                temperature=0.1,
+                max_tokens=500,
                 top_p=0.9
             )
             return resp['choices'][0]['message']['content'].strip()
-            
         except Exception as e:
             if attempt == max_retries - 1:
                 st.error(f"GPT 호출 오류 (시도 {attempt + 1}/{max_retries}): {str(e)}")
@@ -575,7 +569,7 @@ def generate_with_gpt(prompt, api_key, language, max_retries=3):
                 st.warning(f"GPT 호출 재시도 중... ({attempt + 1}/{max_retries})")
                 continue
 
-# ----------------- 프롬프트 생성 함수들 (개선됨) -----------------
+# ----------------- 프롬프트 생성 함수들 (변경 없음) -----------------
 
 def construct_prompt_phase1_hazard(retrieved_docs, activity_text, language="Korean"):
     """향상된 유해위험요인 예측 프롬프트"""
@@ -587,7 +581,7 @@ def construct_prompt_phase1_hazard(retrieved_docs, activity_text, language="Kore
         },
         "English": {
             "intro": "Here are examples of work activities and associated hazards at construction sites:\n\n",
-            "example_format": "Case {i}:\n- Work Activity: {activity}\n- Hazard: {hazard}\n\n", 
+            "example_format": "Case {i}:\n- Work Activity: {activity}\n- Hazard: {hazard}\n\n",
             "query_format": "Based on the above cases, please predict the main hazards for the following work activity:\n\nWork Activity: {activity}\n\nPredicted Hazard: "
         },
         "Chinese": {
@@ -596,9 +590,8 @@ def construct_prompt_phase1_hazard(retrieved_docs, activity_text, language="Kore
             "query_format": "根据上述案例，请预测以下工作活动的主要危害:\n\n工作活动: {activity}\n\n预测的危害: "
         }
     }
-    
+
     template = prompt_templates.get(language, prompt_templates["Korean"])
-    
     retrieved_examples = []
     for _, doc in retrieved_docs.iterrows():
         try:
@@ -608,11 +601,11 @@ def construct_prompt_phase1_hazard(retrieved_docs, activity_text, language="Kore
                 retrieved_examples.append((activity, hazard))
         except:
             continue
-    
+
     prompt = template["intro"]
-    for i, (activity, hazard) in enumerate(retrieved_examples[:5], 1):  # 최대 5개 예시
-        prompt += template["example_format"].format(i=i, activity=activity, hazard=hazard)
-    
+    for i, (act, haz) in enumerate(retrieved_examples[:5], 1):
+        prompt += template["example_format"].format(i=i, activity=act, hazard=haz)
+
     prompt += template["query_format"].format(activity=activity_text)
     return prompt
 
@@ -635,16 +628,16 @@ def construct_prompt_phase1_risk(retrieved_docs, activity_text, hazard_text, lan
             "query_format": "根据上述标准和案例，请评估以下内容:\n\n工作活动: {activity}\n危害: {hazard}\n\n请以以下JSON格式回答:\n{json_format}"
         }
     }
-    
+
     json_formats = {
         "Korean": '{"빈도": 숫자, "강도": 숫자, "T": 숫자}',
         "English": '{"frequency": number, "intensity": number, "T": number}',
         "Chinese": '{"频率": 数字, "强度": 数字, "T": 数字}'
     }
-    
+
     template = prompt_templates.get(language, prompt_templates["Korean"])
     json_format = json_formats.get(language, json_formats["Korean"])
-    
+
     retrieved_examples = []
     for _, doc in retrieved_docs.iterrows():
         try:
@@ -655,17 +648,17 @@ def construct_prompt_phase1_risk(retrieved_docs, activity_text, hazard_text, lan
             retrieved_examples.append((example_input, frequency, intensity, T_value))
         except:
             continue
-    
+
     prompt = template["intro"]
-    for i, (example_input, freq, intensity, t_val) in enumerate(retrieved_examples[:3], 1):
+    for i, (inp, freq, intensity, t_val) in enumerate(retrieved_examples[:3], 1):
         prompt += template["example_format"].format(
-            i=i, input=example_input, freq=freq, intensity=intensity, t_value=t_val
+            i=i, input=inp, freq=freq, intensity=intensity, t_value=t_val
         )
-    
+
     prompt += template["query_format"].format(
         activity=activity_text, hazard=hazard_text, json_format=json_format
     )
-    
+
     return prompt
 
 def parse_gpt_output_phase1(gpt_output, language="Korean"):
@@ -675,18 +668,16 @@ def parse_gpt_output_phase1(gpt_output, language="Korean"):
         "English": r'\{"frequency":\s*([1-5]),\s*"intensity":\s*([1-5]),\s*"T":\s*([0-9]+)\}',
         "Chinese": r'\{"频率":\s*([1-5]),\s*"强도":\s*([1-5]),\s*"T":\s*([0-9]+)\}'
     }
-    
-    # 현재 언어 패턴부터 시도
+
     pattern = json_patterns.get(language, json_patterns["Korean"])
     match = re.search(pattern, gpt_output)
-    
+
     if match:
         pred_frequency = int(match.group(1))
         pred_intensity = int(match.group(2))
         pred_T = int(match.group(3))
         return pred_frequency, pred_intensity, pred_T
-    
-    # 다른 언어 패턴들도 시도
+
     for lang, pattern in json_patterns.items():
         if lang != language:
             match = re.search(pattern, gpt_output)
@@ -695,24 +686,19 @@ def parse_gpt_output_phase1(gpt_output, language="Korean"):
                 pred_intensity = int(match.group(2))
                 pred_T = int(match.group(3))
                 return pred_frequency, pred_intensity, pred_T
-    
-    # 대체 파싱 시도 (숫자만 추출)
+
     numbers = re.findall(r'\b([1-5])\b', gpt_output)
     if len(numbers) >= 2:
         freq, intensity = int(numbers[0]), int(numbers[1])
         return freq, intensity, freq * intensity
-    
+
     return None
 
 def construct_prompt_phase2(retrieved_docs, activity_text, hazard_text, freq, intensity, T, target_language="Korean"):
     """향상된 개선대책 생성 프롬프트"""
-    # 기존 construct_prompt_phase2 함수 내용을 그대로 유지하되, 
-    # 더 구체적이고 실용적인 개선대책을 생성하도록 개선
-    
     example_section = ""
     examples_added = 0
-    
-    # 언어별 필드명 (기존과 동일)
+
     field_names = {
         "Korean": {
             "improvement_fields": ['개선대책 및 세부관리방안', '개선대책', '개선방안'],
@@ -730,16 +716,15 @@ def construct_prompt_phase2(retrieved_docs, activity_text, hazard_text, freq, in
         },
         "Chinese": {
             "improvement_fields": ['改进措施', '改进计划', '对策'],
-            "activity": "작업활동 및 내용", 
+            "activity": "작업활동 및 내용",
             "hazard": "유해위험요인 및 환경측면 영향",
             "freq": "빈도",
             "intensity": "강도",
         }
     }
-    
+
     fields = field_names.get(target_language, field_names["Korean"])
-    
-    # 예시 데이터 수집
+
     for _, row in retrieved_docs.iterrows():
         try:
             improvement_plan = ""
@@ -747,19 +732,18 @@ def construct_prompt_phase2(retrieved_docs, activity_text, hazard_text, freq, in
                 if field in row and pd.notna(row[field]):
                     improvement_plan = row[field]
                     break
-            
+
             if not improvement_plan:
                 continue
-                
+
             original_freq = int(row[fields["freq"]]) if fields["freq"] in row else 3
             original_intensity = int(row[fields["intensity"]]) if fields["intensity"] in row else 3
             original_T = original_freq * original_intensity
-                
-            # 개선 후 데이터 (추정)
+
             improved_freq = max(1, original_freq - 1)
-            improved_intensity = max(1, original_intensity - 1) 
+            improved_intensity = max(1, original_intensity - 1)
             improved_T = improved_freq * improved_intensity
-            
+
             if target_language == "Korean":
                 example_section += f"""
 예시 {examples_added + 1}:
@@ -772,7 +756,7 @@ def construct_prompt_phase2(retrieved_docs, activity_text, hazard_text, freq, in
 {{
   "개선대책": "{improvement_plan}",
   "개선 후 빈도": {improved_freq},
-  "개선 후 강도": {improved_intensity}, 
+  "개선 후 강도": {improved_intensity},
   "개선 후 T": {improved_T},
   "T 감소율": {compute_rrr(original_T, improved_T):.2f}
 }}
@@ -814,15 +798,14 @@ Output (Improvement Plan and Risk Reduction) JSON format:
 }}
 
 """
-            
+
             examples_added += 1
             if examples_added >= 3:
                 break
-                
-        except Exception as e:
+
+        except Exception:
             continue
-    
-    # 기본 예시 (예시가 없는 경우)
+
     if examples_added == 0:
         if target_language == "Korean":
             example_section = """
@@ -878,8 +861,7 @@ Output (Improvement Plan and Risk Reduction) JSON format:
 }
 
 """
-    
-    # 언어별 JSON 키 및 안내문
+
     json_keys = {
         "Korean": {
             "improvement": "개선대책",
@@ -890,7 +872,7 @@ Output (Improvement Plan and Risk Reduction) JSON format:
         },
         "English": {
             "improvement": "improvement_plan",
-            "improved_freq": "improved_frequency", 
+            "improved_freq": "improved_frequency",
             "improved_intensity": "improved_intensity",
             "improved_t": "improved_T",
             "reduction_rate": "reduction_rate"
@@ -899,11 +881,11 @@ Output (Improvement Plan and Risk Reduction) JSON format:
             "improvement": "改进措施",
             "improved_freq": "改进后频率",
             "improved_intensity": "改进后强度",
-            "improved_t": "改进后T值", 
+            "improved_t": "改进后T值",
             "reduction_rate": "T值降低率"
         }
     }
-    
+
     instructions = {
         "Korean": {
             "new_input": "이제 새로운 입력입니다:",
@@ -924,11 +906,10 @@ Output (Improvement Plan and Risk Reduction) JSON format:
             "output": "输出:"
         }
     }
-    
+
     keys = json_keys.get(target_language, json_keys["Korean"])
     instr = instructions.get(target_language, instructions["Korean"])
-    
-    # 최종 프롬프트 구성
+
     prompt = f"""{example_section}
 {instr['new_input']}
 입력 작업활동: {activity_text}
@@ -949,18 +930,15 @@ Output (Improvement Plan and Risk Reduction) JSON format:
 {instr['requirements']}
 {instr['output']}
 """
-    
     return prompt
 
 def parse_gpt_output_phase2(gpt_output, language="Korean"):
     """향상된 Phase 2 출력 파싱"""
     try:
-        # JSON 블록 추출
         json_match = re.search(r'```json\s*(.*?)\s*```', gpt_output, re.DOTALL)
         if json_match:
             json_str = json_match.group(1)
         else:
-            # JSON 객체 직접 추출
             json_match = re.search(r'\{.*\}', gpt_output, re.DOTALL)
             if json_match:
                 json_str = json_match.group(0)
@@ -969,8 +947,7 @@ def parse_gpt_output_phase2(gpt_output, language="Korean"):
 
         import json
         result = json.loads(json_str)
-        
-        # 언어별 키 매핑
+
         key_mappings = {
             "Korean": {
                 "improvement": ["개선대책"],
@@ -994,18 +971,16 @@ def parse_gpt_output_phase2(gpt_output, language="Korean"):
                 "reduction_rate": ["T值降低率", "降低率"]
             }
         }
-        
+
         mappings = key_mappings.get(language, key_mappings["Korean"])
         mapped_result = {}
-        
-        # 키 매핑 수행
+
         for result_key, possible_keys in mappings.items():
             for key in possible_keys:
                 if key in result:
                     mapped_result[result_key] = result[key]
                     break
-        
-        # 필수 값 검증 및 기본값 설정
+
         if "improved_freq" not in mapped_result:
             mapped_result["improved_freq"] = 1
         if "improved_intensity" not in mapped_result:
@@ -1013,69 +988,61 @@ def parse_gpt_output_phase2(gpt_output, language="Korean"):
         if "improved_t" not in mapped_result:
             mapped_result["improved_t"] = mapped_result["improved_freq"] * mapped_result["improved_intensity"]
         if "reduction_rate" not in mapped_result:
-            mapped_result["reduction_rate"] = 50.0  # 기본값
-            
+            mapped_result["reduction_rate"] = 50.0
+
         return mapped_result
-        
+
     except Exception as e:
         st.error(f"개선대책 파싱 중 오류 발생: {str(e)}")
         st.write("원본 GPT 응답:", gpt_output)
         return {
             "improvement": "안전 교육 실시 및 보호구 착용 의무화",
             "improved_freq": 1,
-            "improved_intensity": 1, 
+            "improved_intensity": 1,
             "improved_t": 1,
             "reduction_rate": 50.0
         }
 
-# -----------------------------------------------------------------------------
-# ---------------------------  Overview 탭 ------------------------------------
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
+# ---------------------------  Overview 탭 ------------------------------------  
+# -----------------------------------------------------------------------------  
 with tabs[0]:
     st.markdown(f'<div class="sub-header">{texts["overview_header"]}</div>', unsafe_allow_html=True)
-    
+
     col_overview, col_features = st.columns([3, 2])
-    
+
     with col_overview:
         st.markdown(f"<div class='info-text'>{texts['overview_text']}</div>", unsafe_allow_html=True)
-        
-        # 시스템 메트릭 표시
+
         col_metric1, col_metric2, col_metric3 = st.columns(3)
-        
         with col_metric1:
             st.metric(texts["supported_languages"], texts["languages_count"], texts["languages_detail"])
         with col_metric2:
             st.metric(texts["assessment_phases"], texts["phases_count"], texts["phases_detail"])
         with col_metric3:
             st.metric(texts["risk_grades"], texts["grades_count"], texts["grades_detail"])
-    
+
     with col_features:
         st.markdown(f"**{texts['features_title']}**")
         st.markdown(texts['phase1_features'])
         st.markdown(texts['phase2_features'])
 
-# -----------------------------------------------------------------------------
-# --------------  Risk Assessment 통합 탭 --------------------------------------
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------  
+# --------------  Risk Assessment 통합 탭 --------------------------------------  
+# -----------------------------------------------------------------------------  
 with tabs[1]:
     st.markdown(f'<div class="sub-header">{texts["tab_phase1"]} & {texts["tab_phase2"]}</div>', unsafe_allow_html=True)
 
-    # ① API Key & Dataset Setup
     col_api, col_dataset = st.columns([2, 1])
-    
     with col_api:
         api_key = st.text_input(texts['api_key_label'], type='password', key='api_key_all')
-    
     with col_dataset:
-        dataset_name = st.selectbox(texts['dataset_label'], [
-            "SWRO 건축공정 (건축)",
-            "Civil (토목)", 
-            "Marine (토목)",
-            "SWRO 기계공사 (플랜트)",
-            "SWRO 전기작업표준 (플랜트)"
-        ], key='dataset_all')
+        dataset_name = st.selectbox(
+            texts['dataset_label'],
+            ["SWRO 건축공정 (건축)", "Civil (토목)", "Marine (토목)", "SWRO 기계공사 (플랜트)", "SWRO 전기작업표준 (플랜트)"],
+            key='dataset_all'
+        )
 
-    # ② Data Loading Section
     if ss.retriever_pool_df is None or st.button(texts['load_data_btn'], type="primary"):
         if not api_key:
             st.warning(texts['api_key_warning'])
@@ -1083,69 +1050,51 @@ with tabs[1]:
             with st.spinner(texts['data_loading']):
                 try:
                     df = load_data(dataset_name)
-                    
-                    # 데이터 분할 및 처리
                     if len(df) > 10:
                         train_df, _ = train_test_split(df, test_size=0.1, random_state=42)
                     else:
                         train_df = df.copy()
-                    
+
                     pool_df = train_df.copy()
                     pool_df['content'] = pool_df.apply(lambda r: ' '.join(r.values.astype(str)), axis=1)
-                    
-                    # 임베딩 처리
+
                     to_embed = pool_df['content'].tolist()
-                    max_texts = min(len(to_embed), 30)  # 처리 개수 증가
-                    
+                    max_texts = min(len(to_embed), 30)
+
                     st.info(texts['demo_limit_info'].format(max_texts=max_texts))
-                    
-                    # 배치 처리로 임베딩 생성
-                    embeds = embed_texts_with_openai(to_embed[:max_texts], api_key=api_key)
-                    
-                    # FAISS 인덱스 구성
+                    embeds = embed_texts_with_openrouter(to_embed[:max_texts], api_key=api_key)
+
                     vecs = np.array(embeds, dtype='float32')
                     dim = vecs.shape[1]
                     index = faiss.IndexFlatL2(dim)
                     index.add(vecs)
-                    
-                    # 세션 상태 업데이트
+
                     ss.index = index
                     ss.embeddings = vecs
                     ss.retriever_pool_df = pool_df.iloc[:max_texts]
-                    
+
                     st.success(texts['data_load_success'].format(max_texts=max_texts))
-                    
-                    # 데이터 미리보기
                     with st.expander("📊 로드된 데이터 미리보기"):
                         st.dataframe(df.head(), use_container_width=True)
-                        
                 except Exception as e:
                     st.error(f"데이터 로딩 중 오류가 발생했습니다: {str(e)}")
 
     st.divider()
-
-    # ③ Risk Assessment Interface
     st.markdown("### 🔍 위험성 평가 수행")
-    
-    # 작업활동 입력
+
     activity = st.text_area(
-        texts['activity_label'], 
+        texts['activity_label'],
         placeholder="예: 임시 현장 저장소에서 포크리프트를 이용한 철골 구조재 하역작업",
         height=100,
         key='user_activity'
     )
-    
-    # 추가 옵션
+
     col_options1, col_options2 = st.columns(2)
-    
     with col_options1:
         include_similar_cases = st.checkbox("유사 사례 포함", value=True)
-        
     with col_options2:
-        result_language = st.selectbox("결과 언어", ["Korean", "English", "Chinese"], 
-                                     index=["Korean", "English", "Chinese"].index(ss.language))
+        result_language = st.selectbox("결과 언어", ["Korean", "English", "Chinese"], index=["Korean", "English", "Chinese"].index(ss.language))
 
-    # 실행 버튼
     run_button = st.button("🚀 위험성 평가 실행", type="primary", use_container_width=True)
 
 if run_button and activity:
@@ -1157,22 +1106,19 @@ if run_button and activity:
         with st.spinner("위험성 평가를 수행하는 중..."):
             try:
                 # === Phase 1: Risk Assessment ===
-
-                # 1) 유사 사례 검색
-                q_emb = embed_texts_with_openai([activity], api_key=api_key)[0]
+                q_emb_list = embed_texts_with_openrouter([activity], api_key=api_key)
+                q_emb = q_emb_list[0]
                 D, I = ss.index.search(
                     np.array([q_emb], dtype='float32'),
                     k=min(10, len(ss.retriever_pool_df))
                 )
                 sim_docs = ss.retriever_pool_df.iloc[I[0]]
 
-                # 2) 유해위험요인 예측
                 hazard_prompt = construct_prompt_phase1_hazard(sim_docs, activity, result_language)
-                hazard = generate_with_gpt(hazard_prompt, api_key, result_language)
+                hazard = generate_with_openrouter(hazard_prompt, api_key, result_language)
 
-                # 3) 빈도·강도 예측
                 risk_prompt = construct_prompt_phase1_risk(sim_docs, activity, hazard, result_language)
-                risk_json = generate_with_gpt(risk_prompt, api_key, result_language)
+                risk_json = generate_with_openrouter(risk_prompt, api_key, result_language)
 
                 parse_result = parse_gpt_output_phase1(risk_json, result_language)
                 if not parse_result:
@@ -1184,12 +1130,10 @@ if run_button and activity:
                 grade = determine_grade(T)
 
                 # === Phase 2: Improvement Measures ===
-
-                # 4) 개선대책 생성
                 improvement_prompt = construct_prompt_phase2(
                     sim_docs, activity, hazard, freq, intensity, T, result_language
                 )
-                improvement_response = generate_with_gpt(improvement_prompt, api_key, result_language)
+                improvement_response = generate_with_openrouter(improvement_prompt, api_key, result_language)
 
                 parsed_improvement = parse_gpt_output_phase2(improvement_response, result_language)
                 if not parsed_improvement:
@@ -1197,7 +1141,6 @@ if run_button and activity:
                     st.expander("GPT 원문 응답").write(improvement_response)
                     st.stop()
 
-                # 개선대책 결과 추출
                 improvement_plan = parsed_improvement.get('improvement', '')
                 improved_freq = parsed_improvement.get('improved_freq', 1)
                 improved_intensity = parsed_improvement.get('improved_intensity', 1)
@@ -1205,25 +1148,17 @@ if run_button and activity:
                 rrr = compute_rrr(T, improved_T)
 
                 # === Results Display ===
-
-                # Phase 1 결과 표시
                 st.markdown("## 📋 Phase 1: 위험성 평가 결과")
-
                 col_result1, col_result2 = st.columns([2, 1])
-
                 with col_result1:
                     st.markdown(f"**작업활동:** {activity}")
                     st.markdown(f"**예측된 유해위험요인:** {hazard}")
-
-                    # 위험도 테이블
                     result_df = pd.DataFrame({
                         texts['result_table_columns'][0]: texts['result_table_rows'],
                         texts['result_table_columns'][1]: [freq, intensity, T, grade]
                     })
                     st.dataframe(result_df, use_container_width=True, hide_index=True)
-
                 with col_result2:
-                    # 위험등급 시각화
                     grade_color = get_grade_color(grade)
                     st.markdown(f"""
                     <div style="text-align:center; padding:20px; background-color:{grade_color};
@@ -1234,15 +1169,12 @@ if run_button and activity:
                     </div>
                     """, unsafe_allow_html=True)
 
-                # 유사 사례 표시 (옵션)
                 if include_similar_cases:
                     st.markdown("### 🔍 유사한 사례")
-
                     similar_records = []
                     for i in range(len(sim_docs)):
                         doc = sim_docs.iloc[i]
                         plan, imp_f, imp_i, imp_t = _extract_improvement_info(doc)
-
                         with st.expander(f"사례 {i+1}: {doc['작업활동 및 내용'][:30]}…"):
                             col1, col2 = st.columns(2)
                             with col1:
@@ -1251,10 +1183,7 @@ if run_button and activity:
                                 st.write(f"**위험도:** 빈도 {doc['빈도']}, 강도 {doc['강도']}, T값 {doc['T']} (등급 {doc['등급']})")
                             with col2:
                                 st.write(f"**개선대책:**")
-                                # 줄바꿈 처리
                                 st.markdown(re.sub(r'(\d\))\s*', r'\1  \n', plan))
-
-                        # 엑셀용 데이터 축적
                         similar_records.append({
                             "작업활동": doc['작업활동 및 내용'],
                             "유해위험요인": doc['유해위험요인 및 환경측면 영향'],
@@ -1265,54 +1194,39 @@ if run_button and activity:
                             "개선대책": plan
                         })
 
-                # Phase 2 결과 표시
                 st.markdown("## 🛠️ Phase 2: 개선대책 생성 결과")
-
                 col_improvement1, col_improvement2 = st.columns([3, 2])
-
                 with col_improvement1:
                     st.markdown(f"### {texts['improvement_plan_header']}")
-
-                    # 1) 2) 등 번호 뒤에 줄바꿈 넣기
                     plan_md = re.sub(r'(\d\))\s*', r'\1  \n', improvement_plan.strip())
                     st.markdown(plan_md)
-
                 with col_improvement2:
                     st.markdown(f"### {texts['risk_improvement_header']}")
-
-                    # 개선 전후 비교 테이블
                     comparison_df = pd.DataFrame({
                         texts['comparison_columns'][0]: texts['result_table_rows'],
                         texts['comparison_columns'][1]: [freq, intensity, T, grade],
                         texts['comparison_columns'][2]: [improved_freq, improved_intensity, improved_T, determine_grade(improved_T)]
                     })
                     st.dataframe(comparison_df, use_container_width=True, hide_index=True)
-
-                    # 위험 감소율 표시
                     st.metric(
                         label=texts['risk_reduction_label'],
                         value=f"{rrr:.1f}%",
                         delta=f"-{T - improved_T} T값"
                     )
 
-                # 위험도 변화 시각화
                 st.markdown("### 📊 위험도 변화 시각화")
-
                 col_vis1, col_vis2 = st.columns(2)
-
                 with col_vis1:
                     st.markdown("**개선 전 위험도**")
-                    progress_before = min(T / 25, 1.0)  # 최대 25로 정규화
+                    progress_before = min(T / 25, 1.0)
                     st.progress(progress_before)
                     st.caption(f"T값: {T} (등급: {grade})")
-
                 with col_vis2:
                     st.markdown("**개선 후 위험도**")
                     progress_after = min(improved_T / 25, 1.0)
                     st.progress(progress_after)
                     st.caption(f"T값: {improved_T} (등급: {determine_grade(improved_T)})")
 
-                # 결과를 세션에 저장
                 ss.last_assessment = {
                     'activity': activity,
                     'hazard': hazard,
@@ -1328,7 +1242,6 @@ if run_button and activity:
                     'similar_cases': similar_records if include_similar_cases else []
                 }
 
-                # Excel 다운로드 기능
                 st.markdown("### 💾 결과 다운로드")
 
                 def create_excel_download():
@@ -1357,10 +1270,7 @@ if run_button and activity:
                         comparison_detail_df = pd.DataFrame({
                             "항목": ["빈도", "강도", "T값", "위험등급"],
                             "개선 전": [freq, intensity, T, grade],
-                            "개선 후": [improved_freq,
-                                      improved_intensity,
-                                      improved_T,
-                                      determine_grade(improved_T)],
+                            "개선 후": [improved_freq, improved_intensity, improved_T, determine_grade(improved_T)],
                             "개선율": [
                                 f"{(freq - improved_freq) / freq * 100:.1f}%" if freq > 0 else "0%",
                                 f"{(intensity - improved_intensity) / intensity * 100:.1f}%" if intensity > 0 else "0%",
@@ -1373,12 +1283,8 @@ if run_button and activity:
                         # ─── 유사사례 시트 ─────────────────────────────────
                         if similar_records:
                             sim_df = pd.DataFrame(similar_records)
-
-                            # 개선 후 빈도·강도 계산
                             sim_df["개선 후 빈도"] = sim_df["빈도"].astype(int).apply(lambda x: max(1, x - 1))
                             sim_df["개선 후 강도"] = sim_df["강도"].astype(int).apply(lambda x: max(1, x - 1))
-
-                            # 내보낼 컬럼 구성
                             export_df = pd.DataFrame({
                                 "작업활동 및 내용 Work Sequence":      sim_df["작업활동"],
                                 "유해위험요인 및 환경측면 영향 Hazardous Factors": sim_df["유해위험요인"],
@@ -1388,10 +1294,8 @@ if run_button and activity:
                                 "위험성 Risk (개선 후) – 빈도 likelihood": sim_df["개선 후 빈도"],
                                 "위험성 Risk (개선 후) – 강도 severity":  sim_df["개선 후 강도"],
                             })
-
                             export_df.to_excel(writer, sheet_name="유사사례", index=False)
 
-                            # 전체 컬럼 빨간색, 줄바꿈 적용
                             workbook = writer.book
                             worksheet = writer.sheets["유사사례"]
                             red_fmt = workbook.add_format({
@@ -1430,4 +1334,3 @@ with footer_col2:
 with footer_col3:
     if os.path.exists('doosan.png'):
         st.image('doosan.png', width=160)
-
