@@ -484,7 +484,7 @@ def create_sample_data():
     return df
 
 def embed_texts_with_openai(texts, api_key, model="text-embedding-3-large"):
-    """OpenRouter (openai.api_base) 를 이용한 텍스트 임베딩 생성"""
+    """OpenRouter (openai.api_base) 를 이용한 텍스트 임베딩 생성 (에러 시 조용히 처리)"""
     if api_key:
         openai.api_key = api_key
 
@@ -492,7 +492,7 @@ def embed_texts_with_openai(texts, api_key, model="text-embedding-3-large"):
     batch_size = 10
 
     for i in range(0, len(texts), batch_size):
-        batch_texts = texts[i:i+batch_size]
+        batch_texts = texts[i:i + batch_size]
         try:
             processed_texts = [str(txt).replace("\n", " ").strip() for txt in batch_texts]
             resp = openai.Embedding.create(
@@ -501,11 +501,13 @@ def embed_texts_with_openai(texts, api_key, model="text-embedding-3-large"):
             )
             for item in resp["data"]:
                 embeddings.append(item["embedding"])
-        except Exception as e:
-            st.error(f"임베딩 생성 중 오류: {e}")
+        except Exception:
+            # 에러가 발생해도 사용자에게 반복적으로 보여주지 않고, 대신 디폴트(0으로 채운) 임베딩을 추가
             for _ in batch_texts:
                 embeddings.append([0] * 1536)
+
     return embeddings
+
 
 def generate_with_gpt(prompt, api_key, language, model="gpt-4o", max_retries=3):
     """OpenRouter (openai.api_base) 를 이용한 GPT 생성 함수"""
