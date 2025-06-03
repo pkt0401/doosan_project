@@ -1148,265 +1148,264 @@ with tabs[1]:
     # 실행 버튼
     run_button = st.button("🚀 위험성 평가 실행", type="primary", use_container_width=True)
 
-    if run_button and activity:
-        if not api_key:
-            st.warning(texts['api_key_warning'])
-        elif ss.index is None:
-            st.warning(texts['load_first_warning'])
-        else:
-            with st.spinner("위험성 평가를 수행하는 중..."):
-                try:
-                    # === Phase 1: Risk Assessment ===
-                    
-                    # 1) 유사 사례 검색
-                    q_emb = embed_texts_with_openai([activity], api_key=api_key)[0]
-                    D, I = ss.index.search(np.array([q_emb], dtype='float32'), 
-                                         k=min(10, len(ss.retriever_pool_df)))
-                    sim_docs = ss.retriever_pool_df.iloc[I[0]]
+if run_button and activity:
+    if not api_key:
+        st.warning(texts['api_key_warning'])
+    elif ss.index is None:
+        st.warning(texts['load_first_warning'])
+    else:
+        with st.spinner("위험성 평가를 수행하는 중..."):
+            try:
+                # === Phase 1: Risk Assessment ===
 
-                    # 2) 유해위험요인 예측
-                    hazard_prompt = construct_prompt_phase1_hazard(sim_docs, activity, result_language)
-                    hazard = generate_with_gpt(hazard_prompt, api_key, result_language)
+                # 1) 유사 사례 검색
+                q_emb = embed_texts_with_openai([activity], api_key=api_key)[0]
+                D, I = ss.index.search(
+                    np.array([q_emb], dtype='float32'),
+                    k=min(10, len(ss.retriever_pool_df))
+                )
+                sim_docs = ss.retriever_pool_df.iloc[I[0]]
 
-                    # 3) 빈도·강도 예측
-                    risk_prompt = construct_prompt_phase1_risk(sim_docs, activity, hazard, result_language)
-                    risk_json = generate_with_gpt(risk_prompt, api_key, result_language)
-                    
-                    parse_result = parse_gpt_output_phase1(risk_json, result_language)
-                    if not parse_result:
-                        st.error(texts['parsing_error'])
-                        st.expander("GPT 원문 응답").write(risk_json)
-                        st.stop()
-                    
-                    freq, intensity, T = parse_result
-                    grade = determine_grade(T)
+                # 2) 유해위험요인 예측
+                hazard_prompt = construct_prompt_phase1_hazard(sim_docs, activity, result_language)
+                hazard = generate_with_gpt(hazard_prompt, api_key, result_language)
 
-                    # === Phase 2: Improvement Measures ===
-                    
-                    # 4) 개선대책 생성
-                    improvement_prompt = construct_prompt_phase2(
-                        sim_docs, activity, hazard, freq, intensity, T, result_language
+                # 3) 빈도·강도 예측
+                risk_prompt = construct_prompt_phase1_risk(sim_docs, activity, hazard, result_language)
+                risk_json = generate_with_gpt(risk_prompt, api_key, result_language)
+
+                parse_result = parse_gpt_output_phase1(risk_json, result_language)
+                if not parse_result:
+                    st.error(texts['parsing_error'])
+                    st.expander("GPT 원문 응답").write(risk_json)
+                    st.stop()
+
+                freq, intensity, T = parse_result
+                grade = determine_grade(T)
+
+                # === Phase 2: Improvement Measures ===
+
+                # 4) 개선대책 생성
+                improvement_prompt = construct_prompt_phase2(
+                    sim_docs, activity, hazard, freq, intensity, T, result_language
+                )
+                improvement_response = generate_with_gpt(improvement_prompt, api_key, result_language)
+
+                parsed_improvement = parse_gpt_output_phase2(improvement_response, result_language)
+                if not parsed_improvement:
+                    st.error(texts['parsing_error_improvement'])
+                    st.expander("GPT 원문 응답").write(improvement_response)
+                    st.stop()
+
+                # 개선대책 결과 추출
+                improvement_plan = parsed_improvement.get('improvement', '')
+                improved_freq = parsed_improvement.get('improved_freq', 1)
+                improved_intensity = parsed_improvement.get('improved_intensity', 1)
+                improved_T = parsed_improvement.get('improved_t', improved_freq * improved_intensity)
+                rrr = compute_rrr(T, improved_T)
+
+                # === Results Display ===
+
+                # Phase 1 결과 표시
+                st.markdown("## 📋 Phase 1: 위험성 평가 결과")
+
+                col_result1, col_result2 = st.columns([2, 1])
+
+                with col_result1:
+                    st.markdown(f"**작업활동:** {activity}")
+                    st.markdown(f"**예측된 유해위험요인:** {hazard}")
+
+                    # 위험도 테이블
+                    result_df = pd.DataFrame({
+                        texts['result_table_columns'][0]: texts['result_table_rows'],
+                        texts['result_table_columns'][1]: [freq, intensity, T, grade]
+                    })
+                    st.dataframe(result_df, use_container_width=True, hide_index=True)
+
+                with col_result2:
+                    # 위험등급 시각화
+                    grade_color = get_grade_color(grade)
+                    st.markdown(f"""
+                    <div style="text-align:center; padding:20px; background-color:{grade_color};
+                                color:white; border-radius:10px; margin:10px 0;">
+                        <h2 style="margin:0;">위험등급</h2>
+                        <h1 style="margin:10px 0; font-size:3rem;">{grade}</h1>
+                        <p style="margin:0;">T값: {T}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # 유사 사례 표시 (옵션)
+                if include_similar_cases:
+                    st.markdown("### 🔍 유사한 사례")
+
+                    similar_records = []
+                    for i in range(len(sim_docs)):
+                        doc = sim_docs.iloc[i]
+                        plan, imp_f, imp_i, imp_t = _extract_improvement_info(doc)
+
+                        with st.expander(f"사례 {i+1}: {doc['작업활동 및 내용'][:30]}…"):
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.write(f"**작업활동:** {doc['작업활동 및 내용']}")
+                                st.write(f"**유해위험요인:** {doc['유해위험요인 및 환경측면 영향']}")
+                                st.write(f"**위험도:** 빈도 {doc['빈도']}, 강도 {doc['강도']}, T값 {doc['T']} (등급 {doc['등급']})")
+                            with col2:
+                                st.write(f"**개선대책:**")
+                                # 줄바꿈 처리
+                                st.markdown(re.sub(r'(\d\))\s*', r'\1  \n', plan))
+
+                        # 엑셀용 데이터 축적
+                        similar_records.append({
+                            "작업활동": doc['작업활동 및 내용'],
+                            "유해위험요인": doc['유해위험요인 및 환경측면 영향'],
+                            "빈도": doc['빈도'],
+                            "강도": doc['강도'],
+                            "T": doc['T'],
+                            "위험등급": doc['등급'],
+                            "개선대책": plan
+                        })
+
+                # Phase 2 결과 표시
+                st.markdown("## 🛠️ Phase 2: 개선대책 생성 결과")
+
+                col_improvement1, col_improvement2 = st.columns([3, 2])
+
+                with col_improvement1:
+                    st.markdown(f"### {texts['improvement_plan_header']}")
+
+                    # 1) 2) 등 번호 뒤에 줄바꿈 넣기
+                    plan_md = re.sub(r'(\d\))\s*', r'\1  \n', improvement_plan.strip())
+                    st.markdown(plan_md)
+
+                with col_improvement2:
+                    st.markdown(f"### {texts['risk_improvement_header']}")
+
+                    # 개선 전후 비교 테이블
+                    comparison_df = pd.DataFrame({
+                        texts['comparison_columns'][0]: texts['result_table_rows'],
+                        texts['comparison_columns'][1]: [freq, intensity, T, grade],
+                        texts['comparison_columns'][2]: [improved_freq, improved_intensity, improved_T, determine_grade(improved_T)]
+                    })
+                    st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+
+                    # 위험 감소율 표시
+                    st.metric(
+                        label=texts['risk_reduction_label'],
+                        value=f"{rrr:.1f}%",
+                        delta=f"-{T - improved_T} T값"
                     )
-                    improvement_response = generate_with_gpt(improvement_prompt, api_key, result_language)
-                    
-                    parsed_improvement = parse_gpt_output_phase2(improvement_response, result_language)
-                    if not parsed_improvement:
-                        st.error(texts['parsing_error_improvement'])
-                        st.expander("GPT 원문 응답").write(improvement_response)
-                        st.stop()
 
-                    # 개선대책 결과 추출
-                    improvement_plan = parsed_improvement.get('improvement', '')
-                    improved_freq = parsed_improvement.get('improved_freq', 1)
-                    improved_intensity = parsed_improvement.get('improved_intensity', 1)
-                    improved_T = parsed_improvement.get('improved_t', improved_freq * improved_intensity)
-                    rrr = compute_rrr(T, improved_T)
+                # 위험도 변화 시각화
+                st.markdown("### 📊 위험도 변화 시각화")
 
-                    # === Results Display ===
-                    
-                    # Phase 1 결과 표시
-                    st.markdown("## 📋 Phase 1: 위험성 평가 결과")
-                    
-                    col_result1, col_result2 = st.columns([2, 1])
-                    
-                    with col_result1:
-                        st.markdown(f"**작업활동:** {activity}")
-                        st.markdown(f"**예측된 유해위험요인:** {hazard}")
-                        
-                        # 위험도 테이블
-                        result_df = pd.DataFrame({
-                            texts['result_table_columns'][0]: texts['result_table_rows'],
-                            texts['result_table_columns'][1]: [freq, intensity, T, grade]
+                col_vis1, col_vis2 = st.columns(2)
+
+                with col_vis1:
+                    st.markdown("**개선 전 위험도**")
+                    progress_before = min(T / 25, 1.0)  # 최대 25로 정규화
+                    st.progress(progress_before)
+                    st.caption(f"T값: {T} (등급: {grade})")
+
+                with col_vis2:
+                    st.markdown("**개선 후 위험도**")
+                    progress_after = min(improved_T / 25, 1.0)
+                    st.progress(progress_after)
+                    st.caption(f"T값: {improved_T} (등급: {determine_grade(improved_T)})")
+
+                # 결과를 세션에 저장
+                ss.last_assessment = {
+                    'activity': activity,
+                    'hazard': hazard,
+                    'freq': freq,
+                    'intensity': intensity,
+                    'T': T,
+                    'grade': grade,
+                    'improvement_plan': improvement_plan,
+                    'improved_freq': improved_freq,
+                    'improved_intensity': improved_intensity,
+                    'improved_T': improved_T,
+                    'rrr': rrr,
+                    'similar_cases': similar_records if include_similar_cases else []
+                }
+
+                # Excel 다운로드 기능
+                st.markdown("### 💾 결과 다운로드")
+
+                def create_excel_download():
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+                        # ─── Phase 1 결과 시트 ─────────────────────────────
+                        phase1_df = pd.DataFrame({
+                            "항목": ["작업활동", "유해위험요인", "빈도", "강도", "T값", "위험등급"],
+                            "값": [activity, hazard, freq, intensity, T, grade]
                         })
-                        st.dataframe(result_df, use_container_width=True, hide_index=True)
-                    
-                    with col_result2:
-                        # 위험등급 시각화
-                        grade_color = get_grade_color(grade)
-                        st.markdown(f"""
-                        <div style="text-align:center; padding:20px; background-color:{grade_color}; 
-                                    color:white; border-radius:10px; margin:10px 0;">
-                            <h2 style="margin:0;">위험등급</h2>
-                            <h1 style="margin:10px 0; font-size:3rem;">{grade}</h1>
-                            <p style="margin:0;">T값: {T}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        phase1_df.to_excel(writer, sheet_name="Phase1_결과", index=False)
 
-                    # 유사 사례 표시 (옵션)
-                    if include_similar_cases:
-                        st.markdown("### 🔍 유사한 사례")
-                        
-                        similar_records = []
-                        for i in range(len(sim_docs)):
-                            doc = sim_docs.iloc[i]
-                            plan, imp_f, imp_i, imp_t = _extract_improvement_info(doc)
-                    
-                            with st.expander(f"사례 {i+1}: {doc['작업활동 및 내용'][:30]}…"):
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.write(f"**작업활동:** {doc['작업활동 및 내용']}")
-                                    st.write(f"**유해위험요인:** {doc['유해위험요인 및 환경측면 영향']}")
-                                    st.write(f"**위험도:** 빈도 {doc['빈도']}, 강도 {doc['강도']}, T값 {doc['T']} (등급 {doc['등급']})")
-                                with col2:
-                                    st.write(f"**개선대책:**")
-                                    # 줄바꿈 처리
-                                    st.markdown(re.sub(r'(\d\))\s*', r'\1  \n', plan))
-                    
-                            # 엑셀용 데이터 축적
-                            similar_records.append({
-                                "작업활동": doc['작업활동 및 내용'],
-                                "유해위험요인": doc['유해위험요인 및 환경측면 영향'],
-                                "빈도": doc['빈도'],
-                                "강도": doc['강도'],
-                                "T": doc['T'],
-                                "위험등급": doc['등급'],
-                                "개선대책": plan
-                            })
-
-                    # Phase 2 결과 표시
-                    st.markdown("## 🛠️ Phase 2: 개선대책 생성 결과")
-                    
-                    col_improvement1, col_improvement2 = st.columns([3, 2])
-                    
-                    with col_improvement1:
-                        st.markdown(f"### {texts['improvement_plan_header']}")
-                    
-                        # 1) 2) 등 번호 뒤에 줄바꿈 넣기
-                        import re
-                        # 예: "1) 첫번째 2) 두번째 3) 세번째" -> 
-                        #    "1) 첫번째\n2) 두번째\n3) 세번째"
-                        plan_md = re.sub(r'(\d\))\s*', r'\1  \n', improvement_plan.strip())
-                    
-                        st.markdown(plan_md)
-                    
-                    with col_improvement2:
-                        st.markdown(f"### {texts['risk_improvement_header']}")
-                        
-                        # 개선 전후 비교 테이블
-                        comparison_df = pd.DataFrame({
-                            texts['comparison_columns'][0]: texts['result_table_rows'],
-                            texts['comparison_columns'][1]: [freq, intensity, T, grade],
-                            texts['comparison_columns'][2]: [improved_freq, improved_intensity, improved_T, determine_grade(improved_T)]
+                        # ─── Phase 2 결과 시트 ─────────────────────────────
+                        phase2_df = pd.DataFrame({
+                            "항목": ["개선대책", "개선 후 빈도", "개선 후 강도", "개선 후 T값", "개선 후 등급", "위험 감소율"],
+                            "값": [improvement_plan,
+                                    improved_freq,
+                                    improved_intensity,
+                                    improved_T,
+                                    determine_grade(improved_T),
+                                    f"{rrr:.2f}%"]
                         })
-                        st.dataframe(comparison_df, use_container_width=True, hide_index=True)
-                        
-                        # 위험 감소율 표시
-                        st.metric(
-                            label=texts['risk_reduction_label'],
-                            value=f"{rrr:.1f}%",
-                            delta=f"-{T-improved_T} T값"
-                        )
+                        phase2_df.to_excel(writer, sheet_name="Phase2_결과", index=False)
 
-                    # 위험도 변화 시각화
-                    st.markdown("### 📊 위험도 변화 시각화")
-                    
-                    col_vis1, col_vis2 = st.columns(2)
-                    
-                    with col_vis1:
-                        st.markdown("**개선 전 위험도**")
-                        progress_before = min(T / 25, 1.0)  # 최대 25로 정규화
-                        st.progress(progress_before)
-                        st.caption(f"T값: {T} (등급: {grade})")
-                    
-                    with col_vis2:
-                        st.markdown("**개선 후 위험도**")
-                        progress_after = min(improved_T / 25, 1.0)
-                        st.progress(progress_after)
-                        st.caption(f"T값: {improved_T} (등급: {determine_grade(improved_T)})")
+                        # ─── 비교 분석 시트 ───────────────────────────────
+                        comparison_detail_df = pd.DataFrame({
+                            "항목": ["빈도", "강도", "T값", "위험등급"],
+                            "개선 전": [freq, intensity, T, grade],
+                            "개선 후": [improved_freq,
+                                      improved_intensity,
+                                      improved_T,
+                                      determine_grade(improved_T)],
+                            "개선율": [
+                                f"{(freq - improved_freq) / freq * 100:.1f}%" if freq > 0 else "0%",
+                                f"{(intensity - improved_intensity) / intensity * 100:.1f}%" if intensity > 0 else "0%",
+                                f"{rrr:.1f}%",
+                                f"{grade} → {determine_grade(improved_T)}"
+                            ]
+                        })
+                        comparison_detail_df.to_excel(writer, sheet_name="비교분석", index=False)
 
-                    # 결과를 세션에 저장
-                    ss.last_assessment = {
-                        'activity': activity,
-                        'hazard': hazard,
-                        'freq': freq,
-                        'intensity': intensity,
-                        'T': T,
-                        'grade': grade,
-                        'improvement_plan': improvement_plan,
-                        'improved_freq': improved_freq,
-                        'improved_intensity': improved_intensity,
-                        'improved_T': improved_T,
-                        'rrr': rrr,
-                        'similar_cases': similar_records if include_similar_cases else []
-                    }
+                        # ─── 유사사례 시트 ─────────────────────────────────
+                        if similar_records:
+                            sim_df = pd.DataFrame(similar_records)
 
-                    # Excel 다운로드 기능
-                    st.markdown("### 💾 결과 다운로드")
-                    
-                    def create_excel_download():
-                        output = io.BytesIO()
-                        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-                            # ─── Phase 1 결과 시트 ─────────────────────────────
-                            phase1_df = pd.DataFrame({
-                                "항목": ["작업활동", "유해위험요인", "빈도", "강도", "T값", "위험등급"],
-                                "값": [activity, hazard, freq, intensity, T, grade]
+                            # 개선 후 빈도·강도 계산
+                            sim_df["개선 후 빈도"] = sim_df["빈도"].astype(int).apply(lambda x: max(1, x - 1))
+                            sim_df["개선 후 강도"] = sim_df["강도"].astype(int).apply(lambda x: max(1, x - 1))
+
+                            # 내보낼 컬럼 구성
+                            export_df = pd.DataFrame({
+                                "작업활동 및 내용 Work Sequence":      sim_df["작업활동"],
+                                "유해위험요인 및 환경측면 영향 Hazardous Factors": sim_df["유해위험요인"],
+                                "위험성 Risk – 빈도 likelihood":     sim_df["빈도"],
+                                "위험성 Risk – 강도 severity":      sim_df["강도"],
+                                "개선대책 및 세부관리방안 Control Measures":    sim_df["개선대책"],
+                                "위험성 Risk (개선 후) – 빈도 likelihood": sim_df["개선 후 빈도"],
+                                "위험성 Risk (개선 후) – 강도 severity":  sim_df["개선 후 강도"],
                             })
-                            phase1_df.to_excel(writer, sheet_name="Phase1_결과", index=False)
-                    
-                            # ─── Phase 2 결과 시트 ─────────────────────────────
-                            phase2_df = pd.DataFrame({
-                                "항목": ["개선대책", "개선 후 빈도", "개선 후 강도", "개선 후 T값", "개선 후 등급", "위험 감소율"],
-                                "값": [improvement_plan,
-                                        improved_freq,
-                                        improved_intensity,
-                                        improved_T,
-                                        determine_grade(improved_T),
-                                        f"{rrr:.2f}%"]
-                            })
-                            phase2_df.to_excel(writer, sheet_name="Phase2_결과", index=False)
-                    
-                            # ─── 비교 분석 시트 ───────────────────────────────
-                            comparison_detail_df = pd.DataFrame({
-                                "항목": ["빈도", "강도", "T값", "위험등급"],
-                                "개선 전": [freq, intensity, T, grade],
-                                "개선 후": [improved_freq,
-                                          improved_intensity,
-                                          improved_T,
-                                          determine_grade(improved_T)],
-                                "개선율": [
-                                    f"{(freq-improved_freq)/freq*100:.1f}%" if freq > 0 else "0%",
-                                    f"{(intensity-improved_intensity)/intensity*100:.1f}%" if intensity > 0 else "0%",
-                                    f"{rrr:.1f}%",
-                                    f"{grade} → {determine_grade(improved_T)}"
-                                ]
-                            })
-                            comparison_detail_df.to_excel(writer, sheet_name="비교분석", index=False)
-                    
-                            # ─── 유사사례 시트 ─────────────────────────────────
-                            # 이미 similar_records 에는 10건이 들어와 있다고 가정
-                            if similar_records:
-                                sim_df = pd.DataFrame(similar_records)
-                    
-                                # 개선 후 빈도·강도 계산
-                                sim_df["개선 후 빈도"] = sim_df["빈도"].astype(int).apply(lambda x: max(1, x - 1))
-                                sim_df["개선 후 강도"] = sim_df["강도"].astype(int).apply(lambda x: max(1, x - 1))
-                    
-                                # 내보낼 컬럼 구성
-                                export_df = pd.DataFrame({
-                                    "작업활동 및 내용 Work Sequence":      sim_df["작업활동"],
-                                    "유해위험요인 및 환경측면 영향 Hazardous Factors": sim_df["유해위험요인"],
-                                    "위험성 Risk – 빈도 likelihood":     sim_df["빈도"],
-                                    "위험성 Risk – 강도 severity":      sim_df["강도"],
-                                    "개선대책 및 세부관리방안 Control Measures":    sim_df["개선대책"],
-                                    "위험성 Risk (개선 후) – 빈도 likelihood": sim_df["개선 후 빈도"],
-                                    "위험성 Risk (개선 후) – 강도 severity":  sim_df["개선 후 강도"],
-                                })
-                    
-                                export_df.to_excel(writer, sheet_name="유사사례", index=False)
-                    
-                                # 전체 컬럼 빨간색, 줄바꿈 적용
-                                workbook = writer.book
-                                worksheet = writer.sheets["유사사례"]
-                                red_fmt = workbook.add_format({
-                                    "font_color": "#FF0000",
-                                    "text_wrap": True
-                                })
-                                for col_idx in range(len(export_df.columns)):
-                                    # 폭 20, 서식 적용
-                                    worksheet.set_column(col_idx, col_idx, 20, red_fmt)
-                    
-                        return output.getvalue()
 
+                            export_df.to_excel(writer, sheet_name="유사사례", index=False)
+
+                            # 전체 컬럼 빨간색, 줄바꿈 적용
+                            workbook = writer.book
+                            worksheet = writer.sheets["유사사례"]
+                            red_fmt = workbook.add_format({
+                                "font_color": "#FF0000",
+                                "text_wrap": True
+                            })
+                            for col_idx in range(len(export_df.columns)):
+                                worksheet.set_column(col_idx, col_idx, 20, red_fmt)
+
+                    return output.getvalue()
+
+            except Exception as e:
+                st.error(f"🚨 예상치 못한 오류가 발생했습니다:\n{e}")
+                st.stop()
 
 # ------------------- 푸터 ------------------------
 st.markdown('<hr style="margin-top: 3rem;">', unsafe_allow_html=True)
@@ -1431,3 +1430,4 @@ with footer_col2:
 with footer_col3:
     if os.path.exists('doosan.png'):
         st.image('doosan.png', width=160)
+
