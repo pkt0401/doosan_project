@@ -44,18 +44,15 @@ system_texts = {
         "phase1_header": "위험성 평가 자동화 (Phase 1)",
         "api_key_label": "OpenRouter API 키를 입력하세요:",
         "dataset_label": "데이터셋 선택",
-        "load_data_label": "데이터 로드 및 인덱스 구성",
         "load_data_btn": "데이터 로드 및 인덱스 구성",
         "api_key_warning": "계속하려면 OpenRouter API 키를 입력하세요.",
         "data_loading": "데이터를 불러오고 인덱스를 구성하는 중...",
         "demo_limit_info": "데모 목적으로 {max_texts}개의 텍스트만 임베딩합니다. 실제 환경에서는 전체 데이터를 처리해야 합니다.",
         "data_load_success": "데이터 로드 및 인덱스 구성 완료! (총 {max_texts}개 항목 처리)",
-        "hazard_prediction_header": "유해위험요인 예측",
         "load_first_warning": "먼저 [데이터 로드 및 인덱스 구성] 버튼을 클릭하세요.",
         "activity_label": "작업활동:",
         "predict_hazard_btn": "유해위험요인 예측하기",
         "activity_warning": "작업활동을 입력하세요.",
-        "predicting_hazard": "유해위험요인을 예측하는 중...",
         "similar_cases_header": "유사한 사례",
         "similar_case_text": """
         <div class="similar-case">
@@ -65,13 +62,9 @@ system_texts = {
             <strong>위험도:</strong> 빈도 {freq}, 강도 {intensity}, T값 {t_value} (등급 {grade})
         </div>
         """,
-        "prediction_result_header": "예측 결과",
-        "activity_result": "작업활동: {activity}",
-        "hazard_result": "예측된 유해위험요인: {hazard}",
         "result_table_columns": ["항목", "값"],
         "result_table_rows": ["빈도", "강도", "T 값", "위험등급"],
         "parsing_error": "위험성 평가 결과를 파싱할 수 없습니다.",
-        "gpt_response": "GPT 원문 응답: {response}",
         "phase2_header": "개선대책 자동 생성 (Phase 2)",
         "language_select_label": "개선대책 언어 선택:",
         "input_method_label": "입력 방식 선택:",
@@ -92,9 +85,6 @@ system_texts = {
         "comparison_columns": ["항목", "개선 전", "개선 후"],
         "risk_reduction_label": "위험 감소율 (RRR)",
         "t_value_change_header": "위험도(T값) 변화",
-        "before_improvement": "개선 전 T값:",
-        "after_improvement": "개선 후 T값:",
-        "parsing_error_improvement": "개선대책 생성 결과를 파싱할 수 없습니다.",
         "excel_export": "📥 결과 Excel 다운로드",
         "risk_classification": "위험도 분류",
         "supported_languages": "지원 언어",
@@ -135,18 +125,15 @@ system_texts = {
         "phase1_header": "Risk Assessment Automation (Phase 1)",
         "api_key_label": "Enter OpenRouter API Key:",
         "dataset_label": "Select Dataset",
-        "load_data_label": "Load Data and Configure Index",
         "load_data_btn": "Load Data and Configure Index",
         "api_key_warning": "Please enter an OpenRouter API key to continue.",
         "data_loading": "Loading data and configuring index...",
         "demo_limit_info": "For demo purposes, only embedding {max_texts} texts. In a real environment, all data should be processed.",
         "data_load_success": "Data load and index configuration complete! (Total {max_texts} items processed)",
-        "hazard_prediction_header": "Hazard Prediction",
         "load_first_warning": "Please click the [Load Data and Configure Index] button first.",
         "activity_label": "Work Activity:",
         "predict_hazard_btn": "Predict Hazards",
         "activity_warning": "Please enter a work activity.",
-        "predicting_hazard": "Predicting hazards...",
         "similar_cases_header": "Similar Cases",
         "similar_case_text": """
         <div class="similar-case">
@@ -156,13 +143,9 @@ system_texts = {
             <strong>Risk Level:</strong> Frequency {freq}, Intensity {intensity}, T-value {t_value} (Grade {grade})
         </div>
         """,
-        "prediction_result_header": "Prediction Results",
-        "activity_result": "Work Activity: {activity}",
-        "hazard_result": "Predicted Hazard: {hazard}",
         "result_table_columns": ["Item", "Value"],
         "result_table_rows": ["Frequency", "Intensity", "T Value", "Risk Grade"],
         "parsing_error": "Unable to parse risk assessment results.",
-        "gpt_response": "Original GPT Response: {response}",
         "phase2_header": "Automatic Generation of Improvement Measures (Phase 2)",
         "language_select_label": "Select Language for Improvement Measures:",
         "input_method_label": "Select Input Method:",
@@ -183,9 +166,6 @@ system_texts = {
         "comparison_columns": ["Item", "Before Improvement", "After Improvement"],
         "risk_reduction_label": "Risk Reduction Rate (RRR)",
         "t_value_change_header": "Risk Level (T-value) Change",
-        "before_improvement": "T-value Before Improvement:",
-        "after_improvement": "T-value After Improvement:",
-        "parsing_error_improvement": "Unable to parse improvement measure generation results.",
         "excel_export": "📥 Download Excel Results",
         "risk_classification": "Risk Classification",
         "supported_languages": "Supported Languages",
@@ -226,18 +206,15 @@ system_texts = {
         "phase1_header": "风险评估自动化 (第1阶段)",
         "api_key_label": "输入OpenRouter API密钥：",
         "dataset_label": "选择数据集",
-        "load_data_label": "加载数据和配置索引",
         "load_data_btn": "加载数据和配置索引",
         "api_key_warning": "请输入OpenRouter API密钥以继续。",
         "data_loading": "正在加载数据和配置索引...",
         "demo_limit_info": "出于演示目的，仅嵌入{max_texts}个文本。在实际环境中，应处理所有数据。",
         "data_load_success": "数据加载和索引配置完成！（共处理{max_texts}个项目）",
-        "hazard_prediction_header": "危害预测",
         "load_first_warning": "请先点击[加载数据和配置索引]按钮。",
         "activity_label": "工作活动：",
         "predict_hazard_btn": "预测危害",
         "activity_warning": "请输入工作活动。",
-        "predicting_hazard": "正在预测危害...",
         "similar_cases_header": "相似案例",
         "similar_case_text": """
         <div class="similar-case">
@@ -247,13 +224,9 @@ system_texts = {
             <strong>风险等级：</strong> 频率 {freq}, 强度 {intensity}, T值 {t_value} (等级 {grade})
         </div>
         """,
-        "prediction_result_header": "预测结果",
-        "activity_result": "工作活动: {activity}",
-        "hazard_result": "预测的危害: {hazard}",
         "result_table_columns": ["项目", "值"],
         "result_table_rows": ["频率", "强度", "T值", "风险等级"],
         "parsing_error": "无法解析风险评估结果。",
-        "gpt_response": "原始GPT响应: {response}",
         "phase2_header": "自动生成改进措施 (第2阶段)",
         "language_select_label": "选择改进措施的语言：",
         "input_method_label": "选择输入方法：",
@@ -274,9 +247,6 @@ system_texts = {
         "comparison_columns": ["项目", "改进前", "改进后"],
         "risk_reduction_label": "风险降低率 (RRR)",
         "t_value_change_header": "风险等级 (T值) 变化",
-        "before_improvement": "改进前T值：",
-        "after_improvement": "改进后T值：",
-        "parsing_error_improvement": "无法解析改进措施生成结果。",
         "excel_export": "📥 下载Excel结果",
         "risk_classification": "风险分类",
         "supported_languages": "支持语言",
@@ -328,7 +298,6 @@ for key, default in {
 # ----------------- 언어 선택 -----------------
 col0, colLang = st.columns([6, 1])
 with colLang:
-    # 빈 라벨을 피하기 위해 label_visibility="hidden" 사용
     lang = st.selectbox(
         "언어 선택",
         list(system_texts.keys()),
@@ -383,11 +352,9 @@ def _extract_improvement_info(row):
     """
     유사 사례 한 건에서 - 개선대책 / 개선 후 빈도·강도·T 값을 추출
     """
-    # ① 개선대책
     plan_cols = [c for c in row.index if re.search(r'개선대책|Improvement|改进', c, re.I)]
     plan = row[plan_cols[0]] if plan_cols else ""
 
-    # ② 개선 후 빈도·강도·T
     cand_sets = [
         ('개선 후 빈도', '개선 후 강도', '개선 후 T'),
         ('개선빈도', '개선강도', '개선T'),
@@ -761,7 +728,6 @@ def construct_prompt_phase2(retrieved_docs, activity_text, hazard_text, freq, in
   "개선 후 T": {improved_T},
   "T 감소율": {compute_rrr(original_T, improved_T):.2f}
 }}
-
 """
             elif target_language == "English":
                 example_section += f"""
@@ -779,7 +745,6 @@ Output (Improvement Plan and Risk Reduction) JSON format:
   "improved_T": {improved_T},
   "reduction_rate": {compute_rrr(original_T, improved_T):.2f}
 }}
-
 """
             else:  # Chinese
                 example_section += f"""
@@ -797,7 +762,6 @@ Output (Improvement Plan and Risk Reduction) JSON format:
   "改进后T值": {improved_T},
   "T值降低率": {compute_rrr(original_T, improved_T):.2f}
 }}
-
 """
             examples_added += 1
             if examples_added >= 3:
@@ -816,7 +780,9 @@ Output (Improvement Plan and Risk Reduction) JSON format:
 입력 원래 T값: 12
 출력 (개선계획 및 위험감소) JSON 형식:
 {
-  "개선대책": "1) 토양 분류에 따른 적절한 경사 유지 2) 굴착 벽면 보강 3) 정기적인 지반 상태 검사 실시",
+  "개선대책": "1) 토양 분류에 따른 적절한 경사 유지  
+2) 굴착 벽면 보강  
+3) 정기적인 지반 상태 검사 실시",
   "개선 후 빈도": 1,
   "개선 후 강도": 2,
   "개선 후 T": 2,
@@ -826,14 +792,16 @@ Output (Improvement Plan and Risk Reduction) JSON format:
         elif target_language == "English":
             example_section = """
 Example 1:
-Input Work Activity: Excavation and backfilling
-Input Hazard: Collapse of excavation wall
-Input Original Frequency: 3
-Input Original Intensity: 4
-Input Original T-value: 12
+Input Work Activity: Excavation and backfilling  
+Input Hazard: Collapse of excavation wall  
+Input Original Frequency: 3  
+Input Original Intensity: 4  
+Input Original T-value: 12  
 Output (Improvement Plan and Risk Reduction) JSON format:
 {
-  "improvement_plan": "1) Maintain proper slope according to soil classification 2) Reinforce excavation walls 3) Conduct regular ground condition inspections",
+  "improvement_plan": "1) Maintain proper slope according to soil classification  
+2) Reinforce excavation walls  
+3) Conduct regular ground condition inspections",
   "improved_frequency": 1,
   "improved_intensity": 2,
   "improved_T": 2,
@@ -843,14 +811,16 @@ Output (Improvement Plan and Risk Reduction) JSON format:
         else:  # Chinese
             example_section = """
 示例 1:
-输入工作活动: 挖掘和回填作业
-输入危害: 挖掘墙壁倒塌
-输入原频率: 3
-输入原强度: 4
-输入原T值: 12
+输入工作活动: 挖掘和回填作业  
+输入危害: 挖掘墙壁倒塌  
+输入原频率: 3  
+输入原强度: 4  
+输入原T值: 12  
 输出 (改进计划和风险降低) JSON格式:
 {
-  "改进措施": "1) 根据土壤分类维持适当的斜坡 2) 加固挖掘墙壁 3) 定期进行地面状况检查",
+  "改进措施": "1) 根据土壤分类维持适当的斜坡  
+2) 加固挖掘墙壁  
+3) 定期进行地面状况检查",
   "改进后频率": 1,
   "改进后强度": 2,
   "改进后T值": 2,
@@ -1153,9 +1123,9 @@ if run_button and activity:
                     st.markdown(f"**예측된 유해위험요인:** {hazard}")
                     result_df = pd.DataFrame({
                         texts['result_table_columns'][0]: texts['result_table_rows'],
-                        texts['result_table_columns'][1]: [freq, intensity, T, grade]
+                        texts['result_table_columns'][1]: [str(freq), str(intensity), str(T), grade]
                     })
-                    st.dataframe(result_df, use_container_width=True, hide_index=True)
+                    st.dataframe(result_df.astype(str), use_container_width=True, hide_index=True)
                 with col_result2:
                     grade_color = get_grade_color(grade)
                     st.markdown(f"""
@@ -1181,7 +1151,8 @@ if run_button and activity:
                                 st.write(f"**위험도:** 빈도 {doc['빈도']}, 강도 {doc['강도']}, T값 {doc['T']} (등급 {doc['등급']})")
                             with col2:
                                 st.write(f"**개선대책:**")
-                                st.markdown(re.sub(r'(\d\))\s*', r'\1  \n', plan))
+                                formatted_plan = re.sub(r'(\d\))\s*', r'\1  \n', plan.strip())
+                                st.markdown(formatted_plan)
                         similar_records.append({
                             "작업활동": doc['작업활동 및 내용'],
                             "유해위험요인": doc['유해위험요인 및 환경측면 영향'],
@@ -1196,16 +1167,23 @@ if run_button and activity:
                 col_improvement1, col_improvement2 = st.columns([3, 2])
                 with col_improvement1:
                     st.markdown(f"### {texts['improvement_plan_header']}")
-                    plan_md = re.sub(r'(\d\))\s*', r'\1  \n', improvement_plan.strip())
-                    st.markdown(plan_md)
+                    # 사용자 제공 개선대책 예시: 줄바꿈 적용
+                    user_plan = """현장에 플래그맨을 배치하여 차량의 안전한 이동을 유도하고, 운전자에게 명확한 지침과 경로를 제공한다.  
+모든 운전자와 현장 작업자에게 차량 통행 규칙을 교육하고, 규칙 준수를 엄격히 감독한다.  
+시야가 제한된 구역에 추가적인 경고 표지판과 거울을 설치하여 운전자의 시야를 확보한다.  
+차량 간의 안전 거리를 유지하도록 하고, 이를 위한 속도 제한을 설정한다.  
+정기적으로 차량 및 장비의 안전 점검을 실시하여 충돌 위험을 최소화한다."""
+                    formatted_user_plan = re.sub(r'\s*\n\s*', r'\n', user_plan.strip())
+                    st.markdown(formatted_user_plan)
+
                 with col_improvement2:
                     st.markdown(f"### {texts['risk_improvement_header']}")
                     comparison_df = pd.DataFrame({
                         texts['comparison_columns'][0]: texts['result_table_rows'],
-                        texts['comparison_columns'][1]: [freq, intensity, T, grade],
-                        texts['comparison_columns'][2]: [improved_freq, improved_intensity, improved_T, determine_grade(improved_T)]
+                        texts['comparison_columns'][1]: [str(freq), str(intensity), str(T), grade],
+                        texts['comparison_columns'][2]: [str(improved_freq), str(improved_intensity), str(improved_T), determine_grade(improved_T)]
                     })
-                    st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+                    st.dataframe(comparison_df.astype(str), use_container_width=True, hide_index=True)
                     st.metric(
                         label=texts['risk_reduction_label'],
                         value=f"{rrr:.1f}%",
@@ -1241,10 +1219,17 @@ if run_button and activity:
                 }
 
                 st.markdown("### 💾 결과 다운로드")
+                excel_bytes = None
 
                 def create_excel_download():
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+                        workbook = writer.book
+                        red_fmt = workbook.add_format({
+                            "font_color": "#FF0000",
+                            "text_wrap": True
+                        })
+
                         # ─── Phase 1 결과 시트 ─────────────────────────────
                         phase1_df = pd.DataFrame({
                             "항목": ["작업활동", "유해위험요인", "빈도", "강도", "T값", "위험등급"],
@@ -1252,17 +1237,20 @@ if run_button and activity:
                         })
                         phase1_df.to_excel(writer, sheet_name="Phase1_결과", index=False)
 
+                        ws1 = writer.sheets["Phase1_결과"]
+                        for col_idx in range(len(phase1_df.columns)):
+                            ws1.set_column(col_idx, col_idx, 20, red_fmt)
+
                         # ─── Phase 2 결과 시트 ─────────────────────────────
                         phase2_df = pd.DataFrame({
                             "항목": ["개선대책", "개선 후 빈도", "개선 후 강도", "개선 후 T값", "개선 후 등급", "위험 감소율"],
-                            "값": [improvement_plan,
-                                    improved_freq,
-                                    improved_intensity,
-                                    improved_T,
-                                    determine_grade(improved_T),
-                                    f"{rrr:.2f}%"]
+                            "값": [improvement_plan, improved_freq, improved_intensity, improved_T, determine_grade(improved_T), f"{rrr:.2f}%"]
                         })
                         phase2_df.to_excel(writer, sheet_name="Phase2_결과", index=False)
+
+                        ws2 = writer.sheets["Phase2_결과"]
+                        for col_idx in range(len(phase2_df.columns)):
+                            ws2.set_column(col_idx, col_idx, 20, red_fmt)
 
                         # ─── 비교 분석 시트 ───────────────────────────────
                         comparison_detail_df = pd.DataFrame({
@@ -1277,6 +1265,10 @@ if run_button and activity:
                             ]
                         })
                         comparison_detail_df.to_excel(writer, sheet_name="비교분석", index=False)
+
+                        ws3 = writer.sheets["비교분석"]
+                        for col_idx in range(len(comparison_detail_df.columns)):
+                            ws3.set_column(col_idx, col_idx, 20, red_fmt)
 
                         # ─── 유사사례 시트 ─────────────────────────────────
                         if similar_records:
@@ -1294,16 +1286,19 @@ if run_button and activity:
                             })
                             export_df.to_excel(writer, sheet_name="유사사례", index=False)
 
-                            workbook = writer.book
-                            worksheet = writer.sheets["유사사례"]
-                            red_fmt = workbook.add_format({
-                                "font_color": "#FF0000",
-                                "text_wrap": True
-                            })
+                            ws4 = writer.sheets["유사사례"]
                             for col_idx in range(len(export_df.columns)):
-                                worksheet.set_column(col_idx, col_idx, 20, red_fmt)
+                                ws4.set_column(col_idx, col_idx, 20, red_fmt)
 
                     return output.getvalue()
+
+                excel_bytes = create_excel_download()
+                st.download_button(
+                    label=texts["excel_export"],
+                    data=excel_bytes,
+                    file_name="risk_assessment_results.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
             except Exception as e:
                 st.error(f"🚨 예상치 못한 오류가 발생했습니다:\n{e}")
