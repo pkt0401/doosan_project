@@ -488,6 +488,7 @@ def embed_texts_with_openai(texts, api_key, model="text-embedding-3-large"):
         st.error("API 키가 설정되어 있지 않습니다.")
         return []
 
+    # api_base는 기본값("https://api.openai.com/v1") 그대로 사용하면 됩니다.
     openai.api_key = api_key
     embeddings = []
     batch_size = 10
@@ -506,7 +507,8 @@ def embed_texts_with_openai(texts, api_key, model="text-embedding-3-large"):
         except Exception as e:
             st.error(f"임베딩 호출 실패 (배치 {i}): {e}")
             for _ in batch_texts:
-                embeddings.append([0] * 1536)
+                # 오류 시, 0으로 채운 벡터를 대신 넣습니다.
+                embeddings.append([0.0] * 1536)
 
     return embeddings
 
@@ -688,7 +690,7 @@ def construct_prompt_phase2(retrieved_docs, activity_text, hazard_text, freq, in
         "Chinese": {
             "improvement_fields": ['改进措施', '改进计划', '对策'],
             "activity": "작업활동 및 내용",
-            "hazard": "유해위험요인及环境측면 영향",
+            "hazard": "유해위험요인 및 환경측면 영향",
             "freq": "빈도",
             "intensity": "강도",
         }
@@ -825,7 +827,7 @@ Output (Improvement Plan and Risk Reduction) JSON format:
 2) 加固挖掘墙壁  
 3) 定期进行地面状况检查",
   "改进后频率": 1,
-  "改进后강도": 2,
+  "改进后强度": 2,
   "改进后T值": 2,
   "T值降低率": 83.33
 }
@@ -849,7 +851,7 @@ Output (Improvement Plan and Risk Reduction) JSON format:
         "Chinese": {
             "improvement": "改进措施",
             "improved_freq": "改进后频率",
-            "improved_intensity": "改进后강도",
+            "improved_intensity": "改进后强度",
             "improved_t": "改进后T值",
             "reduction_rate": "T值降低率"
         }
@@ -935,8 +937,8 @@ def parse_gpt_output_phase2(gpt_output, language="Korean"):
             "Chinese": {
                 "improvement": ["改进措施", "改进计划"],
                 "improved_freq": ["改进后频率", "新频率"],
-                "improved_intensity": ["改进后강도", "新강度"],
-                "improved_t": ["改进后T值", "新T값"],
+                "improved_intensity": ["改进后强度", "新强度"],
+                "improved_t": ["改进后T值", "新T值"],
                 "reduction_rate": ["T值降低率", "降低率"]
             }
         }
@@ -1171,14 +1173,13 @@ with tabs[1]:
                     col_improvement1, col_improvement2 = st.columns([3, 2])
                     with col_improvement1:
                         st.markdown(f"### {texts['improvement_plan_header']}")
-                        # 사용자 제공 개선대책 예시: 줄바꿈 적용
-                        user_plan = """현장에 플래그맨을 배치하여 차량의 안전한 이동을 유도하고, 운전자에게 명확한 지침과 경로를 제공한다.  
-모든 운전자와 현장 작업자에게 차량 통행 규칙을 교육하고, 규칙 준수를 엄격히 감독한다.  
-시야가 제한된 구역에 추가적인 경고 표지판과 거울을 설치하여 운전자의 시야를 확보한다.  
-차량 간의 안전 거리를 유지하도록 하고, 이를 위한 속도 제한을 설정한다.  
-정기적으로 차량 및 장비의 안전 점검을 실시하여 충돌 위험을 최소화한다."""
-                        formatted_user_plan = re.sub(r'\s*\n\s*', r'\n', user_plan.strip())
-                        st.markdown(formatted_user_plan)
+                        # 이제 하드코딩된 예시 대신, 실제 GPT 생성 결과를 바로 보여줍니다.
+                        if improvement_plan:
+                            # 줄바꿈이 포함되어 있다면, <br> 태그로 처리
+                            formatted_plan = re.sub(r'\s*\n\s*', r'<br>', improvement_plan.strip())
+                            st.markdown(formatted_plan, unsafe_allow_html=True)
+                        else:
+                            st.write("개선대책을 생성하지 못했습니다.")
 
                     with col_improvement2:
                         st.markdown(f"### {texts['risk_improvement_header']}")
