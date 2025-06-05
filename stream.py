@@ -7,7 +7,7 @@ import os
 import io
 from PIL import Image
 from sklearn.model_selection import train_test_split
-import openai
+from openai import OpenAI
 
 # ----------------- 시스템 다국어 텍스트 -----------------
 system_texts = {
@@ -17,7 +17,7 @@ system_texts = {
         "tab_phase1": "위험성 평가 (Phase 1)",
         "tab_phase2": "개선대책 생성 (Phase 2)",
         "overview_header": "LLM 기반 위험성평가 시스템",
-        "overview_text": "두산에너빌리티 AI Risk Assessment는 국내 및 해외 건설현장 '수시위험성평가' 및 '노동부 중대재해 사례'를 학습하여 개발된 자동 위험성평가 프로그램 입니다. 생성된 위험성평가는 반드시 수시 위험성평가 심의회를 통해 검증 후 사용하시기 바랍니다.",
+        "overview_text": "두산에너빌리티 AI Risk Assessment는 국내 및 해외 건설현장 '수시위험성평가' 및 '노동부 중대재해 사례'를 학습하여 개발된 자동 위험성평가 프로그램입니다. 생성된 위험성평가는 반드시 수시 위험성평가 심의회를 통해 검증 후 사용하시기 바랍니다.",
         "features_title": "시스템 특징 및 구성요소",
         "phase1_features": """
         #### Phase 1: 위험성 평가 자동화
@@ -355,7 +355,7 @@ def _extract_improvement_info(row):
         ('개선 후 빈도', '개선 후 강도', '개선 후 T'),
         ('개선빈도', '개선강도', '개선T'),
         ('improved_frequency', 'improved_intensity', 'improved_T'),
-        ('改进后频率', '改进后强度', '改进后T值'),
+        ('改进后频率', '改进后强度', '改进后T값'),
     ]
     imp_f, imp_i, imp_t = None, None, None
     for f, i, t in cand_sets:
@@ -488,8 +488,7 @@ def embed_texts_with_openai(texts, api_key, model="text-embedding-3-large"):
         st.error("API 키가 설정되어 있지 않습니다.")
         return []
 
-    # api_base는 기본값("https://api.openai.com/v1") 그대로 사용하면 됩니다.
-    openai.api_key = api_key
+    client = OpenAI(api_key=api_key)
     embeddings = []
     batch_size = 10
 
@@ -498,16 +497,15 @@ def embed_texts_with_openai(texts, api_key, model="text-embedding-3-large"):
         processed_texts = [str(txt).replace("\n", " ").strip() for txt in batch_texts]
 
         try:
-            resp = openai.Embedding.create(
+            resp = client.embeddings.create(
                 model=model,
                 input=processed_texts
             )
-            for item in resp["data"]:
-                embeddings.append(item["embedding"])
+            for item in resp.data:
+                embeddings.append(item.embedding)
         except Exception as e:
             st.error(f"임베딩 호출 실패 (배치 {i}): {e}")
             for _ in batch_texts:
-                # 오류 시, 0으로 채운 벡터를 대신 넣습니다.
                 embeddings.append([0.0] * 1536)
 
     return embeddings
@@ -518,7 +516,7 @@ def generate_with_gpt(prompt, api_key, language, model="gpt-4o", max_retries=3):
         st.error("API 키가 설정되어 있지 않습니다.")
         return ""
 
-    openai.api_key = api_key
+    client = OpenAI(api_key=api_key)
     sys_prompts = {
         "Korean": "당신은 건설 현장 위험성 평가 전문가입니다. 정확하고 실용적인 한국어 답변을 제공하세요.",
         "English": "You are a construction site risk assessment expert. Provide accurate and practical responses in English.",
@@ -527,17 +525,17 @@ def generate_with_gpt(prompt, api_key, language, model="gpt-4o", max_retries=3):
 
     for attempt in range(max_retries):
         try:
-            resp = openai.ChatCompletion.create(
+            resp = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": sys_prompts.get(language, sys_prompts['Korean'])},
+                    {"role": "system", "content": sys_prompts.get(language, sys_prompts["Korean"])},
                     {"role": "user",   "content": prompt}
                 ],
                 temperature=0.1,
                 max_tokens=500,
                 top_p=0.9
             )
-            return resp['choices'][0]['message']['content'].strip()
+            return resp.choices[0].message.content.strip()
         except Exception as e:
             if attempt == max_retries - 1:
                 st.error(f"GPT 호출 오류 (시도 {attempt + 1}/{max_retries}): {e}")
@@ -570,8 +568,8 @@ def construct_prompt_phase1_hazard(retrieved_docs, activity_text, language="Kore
     retrieved_examples = []
     for _, doc in retrieved_docs.iterrows():
         try:
-            activity = doc['작업활동 및 내용']
-            hazard = doc['유해위험요인 및 환경측면 영향']
+            activity = doc["작업활동 및 내용"]
+            hazard = doc["유해위험요인 및 환경측면 영향"]
             if pd.notna(activity) and pd.notna(hazard):
                 retrieved_examples.append((activity, hazard))
         except:
@@ -617,8 +615,8 @@ def construct_prompt_phase1_risk(retrieved_docs, activity_text, hazard_text, lan
     for _, doc in retrieved_docs.iterrows():
         try:
             example_input = f"{doc['작업활동 및 내용']} - {doc['유해위험요인 및 환경측면 영향']}"
-            frequency = int(doc['빈도'])
-            intensity = int(doc['강도'])
+            frequency = int(doc["빈도"])
+            intensity = int(doc["강도"])
             T_value = frequency * intensity
             retrieved_examples.append((example_input, frequency, intensity, T_value))
         except:
@@ -993,8 +991,8 @@ with tabs[0]:
 
     with col_features:
         st.markdown(f"**{texts['features_title']}**")
-        st.markdown(texts['phase1_features'])
-        st.markdown(texts['phase2_features'])
+        st.markdown(texts["phase1_features"])
+        st.markdown(texts["phase2_features"])
 
 # -----------------------------------------------------------------------------  
 # ---------------------- Risk Assessment 탭 -----------------------------------  
@@ -1004,19 +1002,19 @@ with tabs[1]:
 
     col_api, col_dataset = st.columns([2, 1])
     with col_api:
-        api_key = st.text_input(texts['api_key_label'], type='password', key='api_key_all')
+        api_key = st.text_input(texts["api_key_label"], type="password", key="api_key_all")
     with col_dataset:
         dataset_name = st.selectbox(
-            texts['dataset_label'],
+            texts["dataset_label"],
             ["SWRO 건축공정 (건축)", "Civil (토목)", "Marine (토목)", "SWRO 기계공사 (플랜트)", "SWRO 전기작업표준 (플랜트)"],
-            key='dataset_all'
+            key="dataset_all"
         )
 
-    if ss.retriever_pool_df is None or st.button(texts['load_data_btn'], type="primary"):
+    if ss.retriever_pool_df is None or st.button(texts["load_data_btn"], type="primary"):
         if not api_key:
-            st.warning(texts['api_key_warning'])
+            st.warning(texts["api_key_warning"])
         else:
-            with st.spinner(texts['data_loading']):
+            with st.spinner(texts["data_loading"]):
                 try:
                     df = load_data(dataset_name)
                     if len(df) > 10:
@@ -1025,15 +1023,15 @@ with tabs[1]:
                         train_df = df.copy()
 
                     pool_df = train_df.copy()
-                    pool_df['content'] = pool_df.apply(lambda r: ' '.join(r.values.astype(str)), axis=1)
+                    pool_df["content"] = pool_df.apply(lambda r: " ".join(r.values.astype(str)), axis=1)
 
-                    to_embed = pool_df['content'].tolist()
+                    to_embed = pool_df["content"].tolist()
                     max_texts = min(len(to_embed), 30)
 
-                    st.info(texts['demo_limit_info'].format(max_texts=max_texts))
+                    st.info(texts["demo_limit_info"].format(max_texts=max_texts))
                     embeds = embed_texts_with_openai(to_embed[:max_texts], api_key=api_key)
 
-                    vecs = np.array(embeds, dtype='float32')
+                    vecs = np.array(embeds, dtype="float32")
                     dim = vecs.shape[1]
                     index = faiss.IndexFlatL2(dim)
                     index.add(vecs)
@@ -1042,7 +1040,7 @@ with tabs[1]:
                     ss.embeddings = vecs
                     ss.retriever_pool_df = pool_df.iloc[:max_texts]
 
-                    st.success(texts['data_load_success'].format(max_texts=max_texts))
+                    st.success(texts["data_load_success"].format(max_texts=max_texts))
                     with st.expander("📊 로드된 데이터 미리보기"):
                         st.dataframe(df.head(), use_container_width=True)
                 except Exception as e:
@@ -1052,10 +1050,10 @@ with tabs[1]:
     st.markdown("### 🔍 위험성 평가 수행")
 
     activity = st.text_area(
-        texts['activity_label'],
+        texts["activity_label"],
         placeholder="예: 임시 현장 저장소에서 포크리프트를 이용한 철골 구조재 하역작업",
         height=100,
-        key='user_activity'
+        key="user_activity"
     )
 
     col_options1, col_options2 = st.columns(2)
@@ -1072,22 +1070,23 @@ with tabs[1]:
 
     if run_button:
         if not activity:
-            st.warning(texts['activity_warning'])
+            st.warning(texts["activity_warning"])
         elif not api_key:
-            st.warning(texts['api_key_warning'])
+            st.warning(texts["api_key_warning"])
         elif ss.index is None:
-            st.warning(texts['load_first_warning'])
+            st.warning(texts["load_first_warning"])
         else:
             with st.spinner("위험성 평가를 수행하는 중..."):
                 try:
                     # === Phase 1: Risk Assessment ===
                     q_emb_list = embed_texts_with_openai([activity], api_key=api_key)
                     if not q_emb_list:
-                        st.error(texts['parsing_error'])
+                        st.error(texts["parsing_error"])
                         st.stop()
                     q_emb = q_emb_list[0]
+
                     D, I = ss.index.search(
-                        np.array([q_emb], dtype='float32'),
+                        np.array([q_emb], dtype="float32"),
                         k=min(10, len(ss.retriever_pool_df))
                     )
                     sim_docs = ss.retriever_pool_df.iloc[I[0]]
@@ -1095,14 +1094,14 @@ with tabs[1]:
                     hazard_prompt = construct_prompt_phase1_hazard(sim_docs, activity, result_language)
                     hazard = generate_with_gpt(hazard_prompt, api_key, result_language)
                     if not hazard:
-                        st.error(texts['parsing_error'])
+                        st.error(texts["parsing_error"])
                         st.stop()
 
                     risk_prompt = construct_prompt_phase1_risk(sim_docs, activity, hazard, result_language)
                     risk_json = generate_with_gpt(risk_prompt, api_key, result_language)
                     parse_result = parse_gpt_output_phase1(risk_json, result_language)
                     if not parse_result:
-                        st.error(texts['parsing_error'])
+                        st.error(texts["parsing_error"])
                         st.expander("GPT 원문 응답").write(risk_json)
                         st.stop()
 
@@ -1115,10 +1114,10 @@ with tabs[1]:
                     )
                     improvement_response = generate_with_gpt(improvement_prompt, api_key, result_language)
                     parsed_improvement = parse_gpt_output_phase2(improvement_response, result_language)
-                    improvement_plan = parsed_improvement.get('improvement', '')
-                    improved_freq = parsed_improvement.get('improved_freq', 1)
-                    improved_intensity = parsed_improvement.get('improved_intensity', 1)
-                    improved_T = parsed_improvement.get('improved_t', improved_freq * improved_intensity)
+                    improvement_plan = parsed_improvement.get("improvement", "")
+                    improved_freq = parsed_improvement.get("improved_freq", 1)
+                    improved_intensity = parsed_improvement.get("improved_intensity", 1)
+                    improved_T = parsed_improvement.get("improved_t", improved_freq * improved_intensity)
                     rrr = compute_rrr(T, improved_T)
 
                     # === Results Display ===
@@ -1128,8 +1127,8 @@ with tabs[1]:
                         st.markdown(f"**작업활동:** {activity}")
                         st.markdown(f"**예측된 유해위험요인:** {hazard}")
                         result_df = pd.DataFrame({
-                            texts['result_table_columns'][0]: texts['result_table_rows'],
-                            texts['result_table_columns'][1]: [str(freq), str(intensity), str(T), grade]
+                            texts["result_table_columns"][0]: texts["result_table_rows"],
+                            texts["result_table_columns"][1]: [str(freq), str(intensity), str(T), grade]
                         })
                         st.dataframe(result_df.astype(str), use_container_width=True, hide_index=True)
                     with col_result2:
@@ -1157,15 +1156,15 @@ with tabs[1]:
                                     st.write(f"**위험도:** 빈도 {doc['빈도']}, 강도 {doc['강도']}, T값 {doc['T']} (등급 {doc['등급']})")
                                 with col2:
                                     st.write(f"**개선대책:**")
-                                    formatted_plan = re.sub(r'(\d\))\s*', r'\1  \n', plan.strip())
+                                    formatted_plan = re.sub(r"(\d\))\s*", r"\1  \n", plan.strip())
                                     st.markdown(formatted_plan)
                             similar_records.append({
-                                "작업활동": doc['작업활동 및 내용'],
-                                "유해위험요인": doc['유해위험요인 및 환경측면 영향'],
-                                "빈도": doc['빈도'],
-                                "강도": doc['강도'],
-                                "T": doc['T'],
-                                "위험등급": doc['등급'],
+                                "작업활동": doc["작업활동 및 내용"],
+                                "유해위험요인": doc["유해위험요인 및 환경측면 영향"],
+                                "빈도": doc["빈도"],
+                                "강도": doc["강도"],
+                                "T": doc["T"],
+                                "위험등급": doc["등급"],
                                 "개선대책": plan
                             })
 
@@ -1173,10 +1172,8 @@ with tabs[1]:
                     col_improvement1, col_improvement2 = st.columns([3, 2])
                     with col_improvement1:
                         st.markdown(f"### {texts['improvement_plan_header']}")
-                        # 이제 하드코딩된 예시 대신, 실제 GPT 생성 결과를 바로 보여줍니다.
                         if improvement_plan:
-                            # 줄바꿈이 포함되어 있다면, <br> 태그로 처리
-                            formatted_plan = re.sub(r'\s*\n\s*', r'<br>', improvement_plan.strip())
+                            formatted_plan = re.sub(r"\s*\n\s*", r"<br>", improvement_plan.strip())
                             st.markdown(formatted_plan, unsafe_allow_html=True)
                         else:
                             st.write("개선대책을 생성하지 못했습니다.")
@@ -1184,13 +1181,13 @@ with tabs[1]:
                     with col_improvement2:
                         st.markdown(f"### {texts['risk_improvement_header']}")
                         comparison_df = pd.DataFrame({
-                            texts['comparison_columns'][0]: texts['result_table_rows'],
-                            texts['comparison_columns'][1]: [str(freq), str(intensity), str(T), grade],
-                            texts['comparison_columns'][2]: [str(improved_freq), str(improved_intensity), str(improved_T), determine_grade(improved_T)]
+                            texts["comparison_columns"][0]: texts["result_table_rows"],
+                            texts["comparison_columns"][1]: [str(freq), str(intensity), str(T), grade],
+                            texts["comparison_columns"][2]: [str(improved_freq), str(improved_intensity), str(improved_T), determine_grade(improved_T)]
                         })
                         st.dataframe(comparison_df.astype(str), use_container_width=True, hide_index=True)
                         st.metric(
-                            label=texts['risk_reduction_label'],
+                            label=texts["risk_reduction_label"],
                             value=f"{rrr:.1f}%",
                             delta=f"-{T - improved_T} T값"
                         )
@@ -1209,18 +1206,18 @@ with tabs[1]:
                         st.caption(f"T값: {improved_T} (등급: {determine_grade(improved_T)})")
 
                     ss.last_assessment = {
-                        'activity': activity,
-                        'hazard': hazard,
-                        'freq': freq,
-                        'intensity': intensity,
-                        'T': T,
-                        'grade': grade,
-                        'improvement_plan': improvement_plan,
-                        'improved_freq': improved_freq,
-                        'improved_intensity': improved_intensity,
-                        'improved_T': improved_T,
-                        'rrr': rrr,
-                        'similar_cases': similar_records
+                        "activity": activity,
+                        "hazard": hazard,
+                        "freq": freq,
+                        "intensity": intensity,
+                        "T": T,
+                        "grade": grade,
+                        "improvement_plan": improvement_plan,
+                        "improved_freq": improved_freq,
+                        "improved_intensity": improved_intensity,
+                        "improved_T": improved_T,
+                        "rrr": rrr,
+                        "similar_cases": similar_records
                     }
 
                     st.markdown("### 💾 결과 다운로드")
@@ -1309,20 +1306,23 @@ st.markdown('<hr style="margin-top: 3rem;">', unsafe_allow_html=True)
 footer_col1, footer_col2, footer_col3 = st.columns([1, 1, 1])
 
 with footer_col1:
-    if os.path.exists('cau.png'):
-        st.image('cau.png', width=140)
+    if os.path.exists("cau.png"):
+        st.image("cau.png", width=140)
 
 with footer_col2:
-    st.markdown("""
-    <div style="text-align: center; padding: 20px;">
-        <h4>두산에너빌리티</h4>
-        <p>AI 기반 위험성 평가 시스템</p>
-        <p style="font-size: 0.8rem; color: #666;">
-            © 2025 Doosan Enerbility. All rights reserved.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 20px;">
+            <h4>두산에너빌리티</h4>
+            <p>AI 기반 위험성 평가 시스템</p>
+            <p style="font-size: 0.8rem; color: #666;">
+                © 2025 Doosan Enerbility. All rights reserved.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 with footer_col3:
-    if os.path.exists('doosan.png'):
-        st.image('doosan.png', width=160)
+    if os.path.exists("doosan.png"):
+        st.image("doosan.png", width=160)
