@@ -44,7 +44,6 @@ system_texts = {
         "load_first_warning": "먼저 [데이터 로드 및 인덱스 구성] 버튼을 클릭하세요.",
         "activity_label": "작업활동:",
         "include_similar_cases": "유사 사례 포함",
-        "result_language": "결과 언어",
         "run_assessment": "🚀 위험성 평가 실행",
         "activity_warning": "작업활동을 입력하세요.",
         "performing_assessment": "위험성 평가를 수행하는 중...",
@@ -113,7 +112,6 @@ system_texts = {
         "load_first_warning": "Please click [Load Data and Configure Index] first.",
         "activity_label": "Work Activity:",
         "include_similar_cases": "Include Similar Cases",
-        "result_language": "Result Language",
         "run_assessment": "🚀 Run Risk Assessment",
         "activity_warning": "Please enter a work activity.",
         "performing_assessment": "Performing risk assessment...",
@@ -180,7 +178,6 @@ system_texts = {
         "load_first_warning": "请先点击 [加载数据并配置索引]。",
         "activity_label": "工作活动：",
         "include_similar_cases": "包括相似案例",
-        "result_language": "结果语言",
         "run_assessment": "🚀 运行风险评估",
         "activity_warning": "请输入工作活动。",
         "performing_assessment": "正在进行风险评估...",
@@ -206,7 +203,7 @@ system_texts = {
         "col_activity_header": "작업활동 및 내용 Work Sequence",
         "col_hazard_header": "유해위험요인 및 환경측면 영향 Hazarous Factors",
         "col_ehs_header": "EHS",
-        "col_risk_likelihood_header": "위험성 Risk – 빈도 likelihood",
+        "col_risk_likelihood_header": "위험性 Risk – 빈도 likelihood",
         "col_risk_severity_header": "위험성 Risk – 강도 severity",
         "col_control_header": "개선대책 및 세부관리방안 Control Measures",
         "col_incharge_header": "개선담당자 In Charge",
@@ -232,7 +229,7 @@ st.markdown(
 # ----------------- 세션 상태 초기화 -----------------
 ss = st.session_state
 for key, default in {
-    "language": "Korean",            # 화면 표시 언어
+    "language": "Korean",            # 화면 표시 및 결과 언어
     "index": None,                   # FAISS 인덱스
     "embeddings": None,              # 임베딩 행렬
     "retriever_pool_df": None,       # 유사 사례 후보 데이터프레임 (한국어 원본)
@@ -244,6 +241,7 @@ for key, default in {
 # ----------------- 언어 선택 -----------------
 col0, colLang = st.columns([6, 1])
 with colLang:
+    # 하나의 셀렉트박스로 UI 언어와 결과 언어를 동시에 선택
     lang = st.selectbox(
         "언어 선택",
         list(system_texts.keys()),
@@ -252,6 +250,7 @@ with colLang:
     )
     ss.language = lang
 texts = system_texts[ss.language]
+result_language = ss.language   # UI 언어와 같은 값을 결과 언어로 사용
 
 # ----------------- 헤더 -----------------
 st.markdown(f'<div class="main-header">{texts["title"]}</div>', unsafe_allow_html=True)
@@ -718,12 +717,9 @@ def construct_prompt_phase2(sim_docs_en: pd.DataFrame, activity_en: str, hazard_
 
 def parse_gpt_output_phase2(gpt_output: str) -> dict:
     """
-    Phase 2 GPT 출력(JSON)을 파싱하여 딕셔너리 반환 (영어 키 기준).
-    <개선된 파싱 로직>
-     1) 우선 json.loads로 시도
-     2) 실패 시, 정규표현식을 이용해 폴백 파싱
-        - "improvement_plan" 문자열만 따로 추출
-        - 나머지 필드("improved_frequency", "improved_intensity", "improved_T", "reduction_rate")는 각각 숫자만 추출
+    Phase 2 GPT 출력(JSON)을 파싱하여 딕셔너리 반환.
+    - 영어 키("improvement_plan", "improved_frequency", ...)도, 중국어 키("改进措施", "改进后频率", ...)도 모두 처리 가능.
+    - 1) json.loads로 시도 → 실패 시 2) 정규표현식 기반 폴백(fallback) 파싱
     """
     try:
         # ─── 1) 표준 JSON 파싱 시도 ─────────────────────────────
@@ -733,47 +729,125 @@ def parse_gpt_output_phase2(gpt_output: str) -> dict:
         import json
         json_str = json_match.group(0)
         parsed = json.loads(json_str)
-        return {
-            "improvement_plan": parsed.get("improvement_plan", ""),
-            "improved_freq": parsed.get("improved_frequency", 1),
-            "improved_intensity": parsed.get("improved_intensity", 1),
-            "improved_T": parsed.get("improved_T", parsed.get("improved_frequency", 1) * parsed.get("improved_intensity", 1)),
-            "reduction_rate": parsed.get("reduction_rate", 0.0)
-        }
 
-    except Exception as e:
+        # 영어 키일 때
+        if "improvement_plan" in parsed:
+            return {
+                "improvement_plan": parsed.get("improvement_plan", ""),
+                "improved_freq": parsed.get("improved_frequency", 1),
+                "improved_intensity": parsed.get("improved_intensity", 1),
+                "improved_T": parsed.get("improved_T", parsed.get("improved_frequency", 1) * parsed.get("improved_intensity", 1)),
+                "reduction_rate": parsed.get("reduction_rate", 0.0)
+            }
+        # 중국어 키일 때
+        chinese_keys = {
+            "improvement": ["改进措施", "改进计划"],
+            "improved_freq": ["改进后频率", "新频率"],
+            "improved_intensity": ["改进后强度", "新强度"],
+            "improved_T": ["改进后T值", "新T值"],
+            "reduction_rate": ["T值降低率", "降低率"]
+        }
+        if any(key in parsed for key in chinese_keys["improvement"]):
+            # Chinese-mapped result
+            im_plan = ""
+            for k in chinese_keys["improvement"]:
+                if k in parsed:
+                    im_plan = parsed[k]
+                    break
+            imp_freq = 1
+            for k in chinese_keys["improved_freq"]:
+                if k in parsed:
+                    imp_freq = int(parsed[k])
+                    break
+            imp_int = 1
+            for k in chinese_keys["improved_intensity"]:
+                if k in parsed:
+                    imp_int = int(parsed[k])
+                    break
+            imp_t = imp_freq * imp_int
+            for k in chinese_keys["improved_T"]:
+                if k in parsed:
+                    imp_t = int(parsed[k])
+                    break
+            r_rate = 0.0
+            for k in chinese_keys["reduction_rate"]:
+                if k in parsed:
+                    try:
+                        r_rate = float(parsed[k])
+                    except:
+                        r_rate = 0.0
+                    break
+            return {
+                "improvement_plan": im_plan,
+                "improved_freq": imp_freq,
+                "improved_intensity": imp_int,
+                "improved_T": imp_t,
+                "reduction_rate": r_rate
+            }
+
+        # 영어·중국어 키 둘 다 없으면 예외 발생 → 폴백으로 처리
+        raise ValueError("No recognized keys found in JSON")
+
+    except Exception:
         # ─── 2) 폴백(Fallback) 파싱 ─────────────────────────────
-        #  2-1) improvement_plan 값만 따로 뽑기
         plan = ""
-        m_plan = re.search(r'"improvement_plan"\s*:\s*"(?P<plan>.*?)"', gpt_output, re.DOTALL)
-        if m_plan:
-            # JSON 문자열 안에서 실제 줄바꿈을 '\n'로 변환
-            raw = m_plan.group("plan")
-            # GPT가 리턴한 스트링 내부의 실제 개행문자를 모두 '\\n'으로 치환
+        # 2-1) 영어 키들의 improvement_plan 부분 추출 시도
+        m_plan_en = re.search(r'"improvement_plan"\s*:\s*"(?P<plan>.*?)"', gpt_output, re.DOTALL)
+        if m_plan_en:
+            raw = m_plan_en.group("plan")
             plan = raw.replace('\n', '\\n').strip()
         else:
-            plan = "1) Educate workers and mandate PPE usage\n2) Install pedestrian walkways\n3) Provide high-visibility vests"
+            # 2-2) 중국어 키 “改进措施”로 추출 시도
+            m_plan_cn = re.search(r'"(改进措施|改进计划)"\s*:\s*"(?P<plan>.*?)"', gpt_output, re.DOTALL)
+            if m_plan_cn:
+                raw = m_plan_cn.group("plan")
+                plan = raw.replace('\n', '\\n').strip()
+            else:
+                # 폴백 기본 예시
+                plan = "1) Educate workers and mandate PPE usage\n2) Install pedestrian walkways\n3) Provide high-visibility vests"
 
-        #  2-2) improved_frequency, improved_intensity, improved_T, reduction_rate 값 추출
-        def extract_int(key: str) -> int:
-            m = re.search(rf'"{key}"\s*:\s*(\d+)', gpt_output)
-            return int(m.group(1)) if m else 1
+        # 2-3) improved_frequency / improved_intensity / improved_T / reduction_rate 추출 (영문 or 中文)
+        def extract_int(keys: list[str]) -> int:
+            for key in keys:
+                m = re.search(rf'"{key}"\s*:\s*(\d+)', gpt_output)
+                if m:
+                    return int(m.group(1))
+            return 1
 
-        def extract_float(key: str) -> float:
-            m = re.search(rf'"{key}"\s*:\s*([\d\.]+)', gpt_output)
-            return float(m.group(1)) if m else 0.0
+        def extract_float(keys: list[str]) -> float:
+            for key in keys:
+                m = re.search(rf'"{key}"\s*:\s*([\d\.]+)', gpt_output)
+                if m:
+                    try:
+                        return float(m.group(1))
+                    except:
+                        return 0.0
+            return 0.0
 
-        improved_freq = extract_int("improved_frequency")
-        improved_intensity = extract_int("improved_intensity")
-        improved_T = extract_int("improved_T")
-        reduction_rate = extract_float("reduction_rate")
+        english_keys = {
+            "improved_freq": ["improved_frequency"],
+            "improved_intensity": ["improved_intensity"],
+            "improved_T": ["improved_T"],
+            "reduction_rate": ["reduction_rate"]
+        }
+        chinese_keys = {
+            "improved_freq": ["改进后频率", "新频率"],
+            "improved_intensity": ["改进后强度", "新强度"],
+            "improved_T": ["改进后T值", "新T值"],
+            "reduction_rate": ["T值降低率", "降低率"]
+        }
+
+        imp_freq = extract_int(english_keys["improved_freq"] + chinese_keys["improved_freq"])
+        imp_int = extract_int(english_keys["improved_intensity"] + chinese_keys["improved_intensity"])
+        imp_t   = extract_int(english_keys["improved_T"] + chinese_keys["improved_T"])
+        r_rate  = extract_float(english_keys["reduction_rate"] + chinese_keys["reduction_rate"])
 
         return {
             "improvement_plan": plan,
-            "improved_freq": improved_freq,
-            "improved_intensity": improved_intensity,
-            "improved_T": improved_T,
-            "reduction_rate": reduction_rate
+            "improved_freq": imp_freq,
+            "improved_intensity": imp_int,
+            "improved_T": imp_t,
+            "reduction_rate": r_rate
         }
 
 def create_excel_download(result_dict: dict, similar_records: list[dict]) -> bytes:
@@ -962,7 +1036,7 @@ with tabs[1]:
                     st.error(f"데이터 로딩 중 오류: {e}")
 
     st.divider()
-    st.markdown(f"### {texts["performing_assessment"].split('.')[0]}")
+    st.markdown(f"### {texts['performing_assessment'].split('.')[0]}")
 
     # 사용자 입력
     activity = st.text_area(
@@ -975,16 +1049,7 @@ with tabs[1]:
         height=100,
         key="user_activity"
     )
-    col_opt1, col_opt2 = st.columns(2)
-    with col_opt1:
-        include_similar_cases = st.checkbox(texts["include_similar_cases"], value=True)
-    with col_opt2:
-        result_language = st.selectbox(
-            texts["result_language"],
-            ["Korean", "English", "Chinese"],
-            index=["Korean", "English", "Chinese"].index(ss.language)
-        )
-
+    include_similar_cases = st.checkbox(texts["include_similar_cases"], value=True)
     run_button = st.button(texts["run_assessment"], type="primary", use_container_width=True)
 
     if run_button:
@@ -998,8 +1063,7 @@ with tabs[1]:
             with st.spinner(texts["performing_assessment"]):
                 try:
                     # ===== Phase 1 =====
-                    # 1) 사용자가 입력한 activity(예: 한국어, 영어, 또는 스페인어)가
-                    #    영어로 번역되지 않은 상태라면 GPT에 “Translate to English” 요청
+                    # 1) 사용자가 입력한 activity(한국어, 영어, 중국어, 스페인어 등)가 영어가 아니면 영어로 번역
                     prompt_to_english = (
                         "Translate the following construction work activity into English. "
                         "Only provide the translation:\n\n" + activity
