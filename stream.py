@@ -500,13 +500,32 @@ def load_data(selected_dataset_name: str):
         if os.path.exists(f"{actual_filename}.xlsx"):
             try:
                 df = pd.read_excel(f"{actual_filename}.xlsx", engine='openpyxl')
-            except ImportError:
+            except Exception as e1:
                 try:
-                    df = pd.read_excel(f"{actual_filename}.xlsx", engine='xlsxwriter')
-                except ImportError:
-                    st.error("Excel 파일을 읽기 위한 라이브러리가 설치되지 않았습니다. openpyxl 또는 xlrd를 설치해주세요.")
-                    return create_sample_data()
+                    df = pd.read_excel(f"{actual_filename}.xlsx", engine='xlrd')
+                except Exception as e2:
+                    try:
+                        # .xls 파일도 시도
+                        if os.path.exists(f"{actual_filename}.xls"):
+                            df = pd.read_excel(f"{actual_filename}.xls", engine='xlrd')
+                        else:
+                            st.warning(f"Excel 파일을 읽을 수 없습니다: {actual_filename}.xlsx")
+                            st.info("샘플 데이터를 사용합니다.")
+                            return create_sample_data()
+                    except Exception as e3:
+                        st.warning(f"Excel 파일 형식에 문제가 있습니다: {e1}")
+                        st.info("샘플 데이터를 사용합니다.")
+                        return create_sample_data()
+        elif os.path.exists(f"{actual_filename}.xls"):
+            try:
+                df = pd.read_excel(f"{actual_filename}.xls", engine='xlrd')
+            except Exception as e:
+                st.warning(f"Excel 파일을 읽을 수 없습니다: {e}")
+                st.info("샘플 데이터를 사용합니다.")
+                return create_sample_data()
         else:
+            st.info(f"파일을 찾을 수 없습니다: {actual_filename}.xlsx 또는 {actual_filename}.xls")
+            st.info("샘플 데이터를 사용합니다.")
             return create_sample_data()
 
         if "삭제 Del" in df.columns:
@@ -1382,7 +1401,7 @@ with tabs[1]:
                         "similar_cases": similar_records
                     }
 
-                    st.markdown("### 💾 결과 다운로드")
+                    st.markdown(f"### {texts['download_results']}")
                     def create_excel_download():
                         output = io.BytesIO()
                         try:
