@@ -402,62 +402,41 @@ def compute_rrr(original_t, improved_t):
     return ((original_t - improved_t) / original_t) * 100
 
 def translate_similar_cases(sim_docs, target_language, api_key):
-    """유사 사례들을 목표 언어로 번역"""
+    """유사 사례들을 목표 언어로 번역하고 데이터프레임 반환"""
     if target_language == "Korean" or not api_key:
-        return sim_docs
-    
+        return sim_docs.copy()
+
     translated_docs = sim_docs.copy()
-    
     for idx, row in sim_docs.iterrows():
         try:
             # 작업활동 번역
             activity_prompt = f"Translate the following construction work activity to {target_language}. Only provide the translation:\n\n{row['작업활동 및 내용']}"
             translated_activity = generate_with_gpt(activity_prompt, api_key, target_language, max_retries=1)
-            
+
             # 유해위험요인 번역  
             hazard_prompt = f"Translate the following construction hazard to {target_language}. Only provide the translation:\n\n{row['유해위험요인 및 환경측면 영향']}"
             translated_hazard = generate_with_gpt(hazard_prompt, api_key, target_language, max_retries=1)
-            
+
             # 개선대책 번역
             if '개선대책' in row and pd.notna(row['개선대책']):
                 improvement_prompt = f"Translate the following safety improvement measures to {target_language}. Keep the numbered format. Only provide the translation:\n\n{row['개선대책']}"
                 translated_improvement = generate_with_gpt(improvement_prompt, api_key, target_language, max_retries=1)
-                translated_docs.at[idx, '개선대책'] = translated_improvement if translated_improvement else row['개선대책']
-            
+                if translated_improvement:
+                    translated_docs.at[idx, '개선대책'] = translated_improvement
+
             # 번역 결과 적용 (빈 결과면 원본 유지)
-            translated_docs.at[idx, '작업활동 및 내용'] = translated_activity if translated_activity else row['작업활동 및 내용']
-            translated_docs.at[idx, '유해위험요인 및 환경측면 영향'] = translated_hazard if translated_hazard else row['유해위험요인 및 환경측면 영향']
-            
-        except Exception as e:
-            # 번역 실패 시 원본 유지
+            if translated_activity:
+                translated_docs.at[idx, '작업활동 및 내용'] = translated_activity
+            if translated_hazard:
+                translated_docs.at[idx, '유해위험요인 및 환경측면 영향'] = translated_hazard
+
+        except Exception:
+            # 번역 실패 시 무시하고 원본 유지
             continue
-    
+
+    return translated_docs
+
 def _extract_improvement_info(row):
-    """
-    유사 사례 한 건에서 - 개선대책 / 개선 후 빈도·강도·T 값을 추출
-    """
-    plan_cols = [c for c in row.index if re.search(r'개선대책|Improvement|改进', c, re.I)]
-    plan = row[plan_cols[0]] if plan_cols else ""
-
-    cand_sets = [
-        ('개선 후 빈도', '개선 후 강도', '개선 후 T'),
-        ('개선빈도', '개선강도', '개선T'),
-        ('improved_frequency', 'improved_intensity', 'improved_T'),
-        ('改进后频率', '改进后强度', '改进后T값'),
-    ]
-    imp_f, imp_i, imp_t = None, None, None
-    for f, i, t in cand_sets:
-        if f in row and i in row and t in row:
-            imp_f, imp_i, imp_t = int(row[f]), int(row[i]), int(row[t])
-            break
-
-    if imp_f is None:
-        orig_f, orig_i = int(row['빈도']), int(row['강도'])
-        imp_f = max(1, orig_f - 1)
-        imp_i = max(1, orig_i - 1)
-        imp_t = imp_f * imp_i
-
-    return plan, imp_f, imp_i, imp_t
     """
     유사 사례 한 건에서 - 개선대책 / 개선 후 빈도·강도·T 값을 추출
     """
@@ -494,9 +473,9 @@ def load_data(selected_dataset_name: str):
             "Architecture": "건축", "Civil": "토목", "Plant": "플랜트",
             "建筑": "건축", "土木": "토목", "工厂": "플랜트"
         }
-        
+
         actual_filename = dataset_mapping.get(selected_dataset_name, selected_dataset_name)
-        
+
         if os.path.exists(f"{actual_filename}.xlsx"):
             try:
                 df = pd.read_excel(f"{actual_filename}.xlsx", engine='openpyxl')
@@ -702,7 +681,7 @@ def construct_prompt_phase1_hazard(retrieved_docs, activity_text, language="Kore
             "Chinese": f"请预测以下工作活动的主要危害:\n\n工作活动: {activity_text}\n\n预测的危害:"
         }
         return basic_prompts.get(language, basic_prompts["Korean"])
-        
+
     prompt_templates = {
         "Korean": {
             "intro": "건설 현장에서 다음과 같은 작업활동과 유해위험요인 사례들이 있습니다:\n\n",
@@ -723,7 +702,7 @@ def construct_prompt_phase1_hazard(retrieved_docs, activity_text, language="Kore
 
     template = prompt_templates.get(language, prompt_templates["Korean"])
     retrieved_examples = []
-    
+
     try:
         for _, doc in retrieved_docs.iterrows():
             try:
@@ -1261,37 +1240,34 @@ with tabs[1]:
                         st.error("데이터가 로드되지 않았습니다. 먼저 데이터를 로드해주세요.")
                         st.stop()
 
+                    # 유사 사례 검색: 최대 10개
                     D, I = ss.index.search(
                         np.array([q_emb], dtype="float32"),
                         k=min(10, len(ss.retriever_pool_df))
                     )
-                    
+
                     # 검색 결과 확인
                     if I is None or len(I) == 0 or len(I[0]) == 0:
                         st.error("유사한 사례를 찾을 수 없습니다.")
                         st.stop()
-                        
+
                     sim_docs = ss.retriever_pool_df.iloc[I[0]]
-                    
+
                     # sim_docs 안전성 확인
                     if sim_docs is None or len(sim_docs) == 0:
                         st.error("유사한 사례 데이터를 가져올 수 없습니다.")
                         st.stop()
-                    
-                    # 선택된 언어로 유사 사례 번역 (한국어가 아닌 경우)
-                    if result_language != "Korean":
-                        sim_docs = translate_similar_cases(sim_docs, result_language, api_key)
-                        # 번역 후에도 안전성 확인
-                        if sim_docs is None:
-                            sim_docs = ss.retriever_pool_df.iloc[I[0]]  # 원본으로 복원
 
-                    hazard_prompt = construct_prompt_phase1_hazard(sim_docs, activity, result_language)
+                    # 선택된 언어로 유사 사례 번역 (한국어가 아닌 경우)
+                    sim_docs_translated = translate_similar_cases(sim_docs, result_language, api_key)
+
+                    hazard_prompt = construct_prompt_phase1_hazard(sim_docs_translated, activity, result_language)
                     hazard = generate_with_gpt(hazard_prompt, api_key, result_language)
                     if not hazard:
                         st.error(texts["parsing_error"])
                         st.stop()
 
-                    risk_prompt = construct_prompt_phase1_risk(sim_docs, activity, hazard, result_language)
+                    risk_prompt = construct_prompt_phase1_risk(sim_docs_translated, activity, hazard, result_language)
                     risk_json = generate_with_gpt(risk_prompt, api_key, result_language)
                     parse_result = parse_gpt_output_phase1(risk_json, result_language)
                     if not parse_result:
@@ -1304,7 +1280,7 @@ with tabs[1]:
 
                     # === Phase 2: Improvement Measures ===
                     improvement_prompt = construct_prompt_phase2(
-                        sim_docs, activity, hazard, freq, intensity, T, result_language
+                        sim_docs_translated, activity, hazard, freq, intensity, T, result_language
                     )
                     improvement_response = generate_with_gpt(improvement_prompt, api_key, result_language)
                     parsed_improvement = parse_gpt_output_phase2(improvement_response, result_language)
@@ -1337,35 +1313,38 @@ with tabs[1]:
                         """, unsafe_allow_html=True)
 
                     similar_records = []
-                    if include_similar_cases and sim_docs is not None and len(sim_docs) > 0:
+                    if include_similar_cases and sim_docs_translated is not None and len(sim_docs_translated) > 0:
                         st.markdown(f"### {texts['similar_cases_section']}")
-                        for i in range(min(len(sim_docs), 5)):  # 최대 5개로 제한
+                        # 최대 10개까지 출력
+                        for i in range(min(len(sim_docs_translated), 10)):
                             try:
-                                doc = sim_docs.iloc[i]
+                                doc = sim_docs_translated.iloc[i]
                                 plan, imp_f, imp_i, imp_t = _extract_improvement_info(doc)
-                                
-                                # 제목 표시용 (원본 또는 번역된 텍스트 사용)
-                                title_text = str(doc['작업활동 및 내용'])[:30] if len(str(doc['작업활동 및 내용'])) > 30 else str(doc['작업활동 및 내용'])
-                                
-                                with st.expander(f"{texts['case_number']} {i+1}: {title_text}…"):
+
+                                # 언어별 라벨
+                                activity_label = {"Korean": "작업활동", "English": "Work Activity", "Chinese": "工作活动"}.get(result_language, "작업활동")
+                                hazard_label = {"Korean": "유해위험요인", "English": "Hazard", "Chinese": "危害"}.get(result_language, "유해위험요인")
+                                risk_label = {"Korean": "위험도", "English": "Risk Level", "Chinese": "风险等级"}.get(result_language, "위험도")
+                                freq_label = {"Korean": "빈도", "English": "Frequency", "Chinese": "频率"}.get(result_language, "빈도")
+                                intensity_label = {"Korean": "강도", "English": "Intensity", "Chinese": "强度"}.get(result_language, "강도")
+                                grade_label = {"Korean": "등급", "English": "Grade", "Chinese": "等级"}.get(result_language, "등급")
+                                improvement_label = {"Korean": "개선대책", "English": "Improvement Measures", "Chinese": "改进措施"}.get(result_language, "개선대책")
+
+                                title_text = str(doc['작업활동 및 내용'])
+                                if len(title_text) > 30:
+                                    title_text = title_text[:30] + "…"
+
+                                with st.expander(f"{texts['case_number']} {i+1}: {title_text}"):
                                     col1, col2 = st.columns(2)
                                     with col1:
-                                        # 언어별 라벨
-                                        activity_label = {"Korean": "작업활동", "English": "Work Activity", "Chinese": "工作活动"}.get(result_language, "작업활동")
-                                        hazard_label = {"Korean": "유해위험요인", "English": "Hazard", "Chinese": "危害"}.get(result_language, "유해위험요인")
-                                        risk_label = {"Korean": "위험도", "English": "Risk Level", "Chinese": "风险等级"}.get(result_language, "위험도")
-                                        freq_label = {"Korean": "빈도", "English": "Frequency", "Chinese": "频率"}.get(result_language, "빈도")
-                                        intensity_label = {"Korean": "강도", "English": "Intensity", "Chinese": "强度"}.get(result_language, "강도")
-                                        grade_label = {"Korean": "등급", "English": "Grade", "Chinese": "等级"}.get(result_language, "등급")
-                                        
                                         st.write(f"**{activity_label}:** {doc['작업활동 및 내용']}")
                                         st.write(f"**{hazard_label}:** {doc['유해위험요인 및 환경측면 영향']}")
                                         st.write(f"**{risk_label}:** {freq_label} {doc['빈도']}, {intensity_label} {doc['강도']}, T값 {doc['T']} ({grade_label} {doc['등급']})")
                                     with col2:
-                                        improvement_label = {"Korean": "개선대책", "English": "Improvement Measures", "Chinese": "改进措施"}.get(result_language, "개선대책")
                                         st.write(f"**{improvement_label}:**")
                                         formatted_plan = re.sub(r"(\d\))\s*", r"\1  \n", str(plan).strip())
                                         st.markdown(formatted_plan)
+
                                 similar_records.append({
                                     "작업활동": doc["작업활동 및 내용"],
                                     "유해위험요인": doc["유해위험요인 및 환경측면 영향"],
@@ -1415,7 +1394,7 @@ with tabs[1]:
                             <p style="margin:5px 0; font-size:1.2em;">{texts['t_value_display']}: {T}</p>
                         </div>
                         """, unsafe_allow_html=True)
-                        
+
                     with col_vis2:
                         st.markdown(f"**{texts['after_improvement']}**")
                         improved_grade = determine_grade(improved_T)
@@ -1516,7 +1495,7 @@ with tabs[1]:
                             st.warning("Excel 다운로드를 위한 라이브러리가 없습니다. CSV 파일로 다운로드합니다.")
                             csv_data = pd.DataFrame({
                                 "작업활동": [activity],
-                                "유해위험요인": [hazard], 
+                                "유해위험요인": [hazard],
                                 "빈도": [freq],
                                 "강도": [intensity],
                                 "T값": [T],
