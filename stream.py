@@ -488,9 +488,9 @@ def generate_with_gpt(prompt: str, api_key: str, model: str="gpt-4o", max_retrie
 
 def translate_similar_cases(sim_docs: pd.DataFrame, api_key: str) -> pd.DataFrame:
     """
-    한국어 원본 sim_docs에서 영어 번역 컬럼(activity_en, hazard_en) 생성.
+    한국어 원본 sim_docs에서 영어 번역 컬럼(activity_en, hazard_en)을 생성.
     - sim_docs: 한국어 원본 DataFrame (칼럼: '작업활동 및 내용', '유해위험요인 및 환경측면 영향', '개선대책', ...)
-    - 반환: sim_docs_en (row마다 activity_en, hazard_en 추가)
+    - 반환: sim_docs_en (각 row마다 activity_en, hazard_en이 추가됨)
     """
     sim_docs_en = sim_docs.copy().reset_index(drop=True)
     sim_docs_en["activity_en"] = sim_docs_en["작업활동 및 내용"]
@@ -498,7 +498,7 @@ def translate_similar_cases(sim_docs: pd.DataFrame, api_key: str) -> pd.DataFram
 
     for idx, row in sim_docs_en.iterrows():
         try:
-            # 1) 작업활동 → 영어
+            # (1) 작업활동 → 영어
             act_ko = row["작업활동 및 내용"]
             prompt_act = (
                 "Translate the following construction work activity into English. "
@@ -508,7 +508,7 @@ def translate_similar_cases(sim_docs: pd.DataFrame, api_key: str) -> pd.DataFram
             if act_en:
                 sim_docs_en.at[idx, "activity_en"] = act_en
 
-            # 2) 유해위험요인 → 영어
+            # (2) 유해위험요인 → 영어
             haz_ko = row["유해위험요인 및 환경측면 영향"]
             prompt_haz = (
                 "Translate the following construction hazard into English. "
@@ -526,6 +526,7 @@ def translate_output(content: str, target_language: str, api_key: str, max_retri
     """
     영어 콘텐츠(content)를 target_language로 번역하여 반환.
     - target_language이 "English"이면 원본 반환.
+    - "Korean" 또는 "Chinese"일 때 GPT 호출로 번역.
     """
     if target_language == "English" or not api_key:
         return content
@@ -607,6 +608,7 @@ def construct_prompt_phase1_risk(sim_docs_en: pd.DataFrame, activity_en: str, ha
 def parse_gpt_output_phase1(gpt_output: str) -> tuple[int, int, int]:
     """
     Phase 1 위험도 평가 JSON 파싱 (영어 결과)
+    - 예시 형식: {"frequency": 3, "intensity": 4, "T": 12}
     """
     pattern = r'\{"frequency":\s*([1-5]),\s*"intensity":\s*([1-5]),\s*"T":\s*([0-9]+)\}'
     match = re.search(pattern, gpt_output)
@@ -616,6 +618,7 @@ def parse_gpt_output_phase1(gpt_output: str) -> tuple[int, int, int]:
         t_val = int(match.group(3))
         return freq, intensity, t_val
 
+    # 패턴 매칭 실패 시 숫자 2개 이상 추출
     nums = re.findall(r'\b([1-5])\b', gpt_output)
     if len(nums) >= 2:
         freq = int(nums[0])
@@ -633,6 +636,7 @@ def construct_prompt_phase2(sim_docs_en: pd.DataFrame, activity_en: str, hazard_
     count = 0
     for _, row in sim_docs_en.head(10).iterrows():
         try:
+            # (1) 한국어 개선대책 → 영어 번역
             plan_ko = row["개선대책"]
             prompt_plan_trans = (
                 "Translate the following safety improvement measures into English. "
@@ -648,6 +652,7 @@ def construct_prompt_phase2(sim_docs_en: pd.DataFrame, activity_en: str, hazard_
             new_freq = max(1, orig_freq - 1)
             new_intensity = max(1, orig_intensity - 1)
             new_t = new_freq * new_intensity
+
             count += 1
             example_section += (
                 f"Example {count}:\n"
@@ -744,7 +749,7 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
     try:
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             workbook = writer.book
-            # ─── Phase1 시트 ─────────────────────────────
+            # ─── Phase 1 시트 ─────────────────────────────
             phase1_df = pd.DataFrame({
                 "항목": ["작업활동", "유해위험요인", "빈도", "강도", "T값", "위험등급"],
                 "값": [
@@ -761,7 +766,7 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
             for col_idx in range(len(phase1_df.columns)):
                 ws1.set_column(col_idx, col_idx, 20)
 
-            # ─── Phase2 시트 ─────────────────────────────
+            # ─── Phase 2 시트 ─────────────────────────────
             phase2_df = pd.DataFrame({
                 "항목": ["개선대책", "개선 후 빈도", "개선 후 강도", "개선 후 T값", "개선 후 등급", "위험 감소율"],
                 "값": [
@@ -805,7 +810,9 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
             # ─── 유사사례 시트 (PIMS 양식: 한국어+영어 혼합 헤더) ─────────────────
             if similar_records:
                 sim_df = pd.DataFrame(similar_records)
-                # '개선 후 빈도', '개선 후 강도' 컬럼 생성
+                # 사용자가 선택한 언어로 이미 번역된 '작업활동', '유해위험요인', '개선대책'을 보관
+                # '빈도', '강도', 'T', '등급'은 원본 한국어 기준 값 그대로 사용
+                # '개선 후 빈도', '개선 후 강도' 계산
                 sim_df["개선 후 빈도"] = sim_df["빈도"].astype(int).apply(lambda x: max(1, x - 1))
                 sim_df["개선 후 강도"] = sim_df["강도"].astype(int).apply(lambda x: max(1, x - 1))
 
@@ -959,7 +966,7 @@ with tabs[1]:
             with st.spinner(texts["performing_assessment"]):
                 try:
                     # ===== Phase 1 =====
-                    # 1) 한국어 → 영어 번역
+                    # 1) 한국어 입력 → 영어 번역
                     prompt_to_english = (
                         "Translate the following construction work activity into English. "
                         "Only provide the translation:\n\n" + activity
@@ -986,14 +993,14 @@ with tabs[1]:
 
                     sim_docs_subset = sim_docs_en.iloc[I[0]].reset_index(drop=True)
 
-                    # 4) Phase1: 유해위험요인 예측
+                    # 4) Phase 1: 유해위험요인 예측
                     hazard_prompt_en = construct_prompt_phase1_hazard(sim_docs_subset, activity_en)
                     hazard_en = generate_with_gpt(hazard_prompt_en, api_key)
                     if not hazard_en:
                         st.error("위험성 평가를 파싱할 수 없습니다.")
                         st.stop()
 
-                    # 5) Phase1: 위험도 평가
+                    # 5) Phase 1: 위험도 평가
                     risk_prompt_en = construct_prompt_phase1_risk(sim_docs_subset, activity_en, hazard_en)
                     risk_json_en = generate_with_gpt(risk_prompt_en, api_key)
                     parse_result = parse_gpt_output_phase1(risk_json_en)
@@ -1023,7 +1030,7 @@ with tabs[1]:
                     display_sim_records = []
                     for idx, row in sim_docs_subset.iterrows():
                         orig_row = sim_docs.iloc[I[0][idx]]  # 한국어 원본
-                        # 두 가지 언어(한국어/영어) 저장
+                        # 원본(한글)과 영어 번역을 모두 저장
                         act_ko = orig_row["작업활동 및 내용"]
                         haz_ko = orig_row["유해위험요인 및 환경측면 영향"]
                         plan_ko = orig_row["개선대책"]
@@ -1033,6 +1040,7 @@ with tabs[1]:
                         if result_language == "English":
                             act_disp = act_en
                             haz_disp = haz_en
+                            # 유사 사례의 개선대책은 한국어 원본이지만, 영어 사용자에게는 영어로 번역해 보여줘야 함
                             plan_disp = translate_output(plan_ko, "English", api_key)
                         elif result_language == "Chinese":
                             act_disp = translate_output(act_en, "Chinese", api_key)
@@ -1065,10 +1073,6 @@ with tabs[1]:
                         st.markdown(f"**{texts['work_activity']}:** {activity_user}")
                         st.markdown(f"**{texts['predicted_hazard']}:** {hazard_user}")
 
-                        result_df_user = pd.DataFrame({
-                            ["빈도", "강도", "T 값", "위험등급"],
-                            [str(freq), str(intensity), str(T_val), grade]
-                        })
                         df_display = pd.DataFrame({
                             texts["comparison_columns"][0]: ["빈도", "강도", "T 값", "위험등급"],
                             "값": [str(freq), str(intensity), str(T_val), grade]
