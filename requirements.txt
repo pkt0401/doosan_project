@@ -6,6 +6,6 @@ sentence-transformers
 faiss-cpu
 torch
 scikit-learn
-openai==0.28.0
+openai
 xlsxwriter
 openrouter
