@@ -84,7 +84,17 @@ system_texts = {
         "col_incharge_header": "개선담당자 In Charge",
         "col_duedate_header": "개선일자 Correction Due Date",
         "col_after_likelihood_header": "위험성 Risk – 빈도 likelihood",
-        "col_after_severity_header": "위험성 Risk – 강도 severity"
+        "col_after_severity_header": "위험성 Risk – 강도 severity",
+        # 추가된 다국어 텍스트
+        "frequency_label": "빈도",
+        "intensity_label": "강도",
+        "t_value_label": "T값",
+        "risk_grade_label": "위험등급",
+        "dataset_architecture": "건축",
+        "dataset_civil": "토목",
+        "dataset_plant": "플랜트",
+        "item_label": "항목",
+        "value_label": "값"
     },
     "English": {
         "title": "Artificial Intelligence Risk Assessment",
@@ -161,7 +171,17 @@ system_texts = {
         "col_incharge_header": "개선담당자 In Charge",
         "col_duedate_header": "개선일자 Correction Due Date",
         "col_after_likelihood_header": "위험성 Risk – 빈도 likelihood",
-        "col_after_severity_header": "위험성 Risk – 강도 severity"
+        "col_after_severity_header": "위험성 Risk – 강도 severity",
+        # 추가된 다국어 텍스트
+        "frequency_label": "Frequency",
+        "intensity_label": "Intensity",
+        "t_value_label": "T Value",
+        "risk_grade_label": "Risk Grade",
+        "dataset_architecture": "Architecture",
+        "dataset_civil": "Civil",
+        "dataset_plant": "Plant",
+        "item_label": "Item",
+        "value_label": "Value"
     },
     "Chinese": {
         "title": "Artificial Intelligence Risk Assessment",
@@ -230,13 +250,23 @@ system_texts = {
         "col_activity_header": "작업활동 및 내용 Work Sequence",
         "col_hazard_header": "유해위험요인 및 환경측면 영향 Hazarous Factors",
         "col_ehs_header": "EHS",
-        "col_risk_likelihood_header": "위험性 Risk – 빈도 likelihood",
-        "col_risk_severity_header": "위험性 Risk – 강도 severity",
+        "col_risk_likelihood_header": "위험성 Risk – 빈도 likelihood",
+        "col_risk_severity_header": "위험성 Risk – 강도 severity",
         "col_control_header": "개선대책 및 세부관리방안 Control Measures",
         "col_incharge_header": "개선담당자 In Charge",
         "col_duedate_header": "개선일자 Correction Due Date",
-        "col_after_likelihood_header": "위험性 Risk – 빈도 likelihood",
-        "col_after_severity_header": "위험性 Risk – 강도 severity"
+        "col_after_likelihood_header": "위험성 Risk – 빈도 likelihood",
+        "col_after_severity_header": "위험성 Risk – 강도 severity",
+        # 추가된 다국어 텍스트
+        "frequency_label": "频率",
+        "intensity_label": "强度",
+        "t_value_label": "T值",
+        "risk_grade_label": "风险等级",
+        "dataset_architecture": "建筑",
+        "dataset_civil": "土木",
+        "dataset_plant": "工厂",
+        "item_label": "项目",
+        "value_label": "值"
     }
 }
 
@@ -339,14 +369,27 @@ def format_improvement_plan_for_display(plan_text: str) -> str:
 # ─────────────────────────────────────────────────────────────────────
 
 @st.cache_data(show_spinner=False)
-def load_data(selected_dataset_name: str) -> pd.DataFrame:
+def load_data(selected_dataset_name: str, language: str) -> pd.DataFrame:
     try:
-        dataset_mapping = {
-            "건축": "건축", "Architecture": "건축",
-            "토목": "토목", "Civil": "토목",
-            "플랜트": "플랜트", "Plant": "플랜트"
-        }
-        actual_filename = dataset_mapping.get(selected_dataset_name, selected_dataset_name)
+        # 언어별 데이터셋 이름을 실제 파일명으로 매핑
+        if language == "Korean":
+            dataset_mapping = {
+                "건축": "건축", "토목": "토목", "플랜트": "플랜트"
+            }
+        elif language == "English": 
+            dataset_mapping = {
+                "Architecture": "건축", "Civil": "토목", "Plant": "플랜트"
+            }
+        elif language == "Chinese":
+            dataset_mapping = {
+                "建筑": "건축", "土木": "토목", "工厂": "플랜트"
+            }
+        else:
+            dataset_mapping = {
+                "건축": "건축", "토목": "토목", "플랜트": "플랜트"
+            }
+            
+        actual_filename = dataset_mapping.get(selected_dataset_name, "건축")
 
         if os.path.exists(f"{actual_filename}.xlsx"):
             try:
@@ -816,7 +859,6 @@ def parse_gpt_output_phase2(gpt_output: str) -> dict:
             "reduction_rate": r_rate
         }
 
-
 def create_excel_download(result_dict: dict, similar_records: list[dict]) -> bytes:
     output = io.BytesIO()
     try:
@@ -923,6 +965,7 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
         
         main_result_df.to_csv(csv_buffer, index=False, encoding="utf-8-sig")
         return csv_buffer.getvalue().encode("utf-8-sig")
+
 # -----------------------------------------------------------------------------  
 # ---------------------- Overview 탭 ------------------------------------------  
 # -----------------------------------------------------------------------------  
@@ -964,7 +1007,12 @@ with tabs[1]:
     with col_api:
         api_key = st.text_input(texts["api_key_label"], type="password", key="api_key_all")
     with col_dataset:
-        dataset_options = ["건축", "토목", "플랜트"]
+        # 수정된 데이터셋 선택 - 언어별 번역 적용
+        dataset_options = [
+            texts["dataset_architecture"], 
+            texts["dataset_civil"], 
+            texts["dataset_plant"]
+        ]
         dataset_name = st.selectbox(
             texts["dataset_label"],
             dataset_options,
@@ -977,7 +1025,8 @@ with tabs[1]:
         else:
             with st.spinner(texts["data_loading"]):
                 try:
-                    df = load_data(dataset_name)
+                    # 언어 정보를 load_data 함수에 전달
+                    df = load_data(dataset_name, ss.language)
                     if len(df) > 10:
                         train_df, _ = train_test_split(df, test_size=0.1, random_state=42)
                     else:
@@ -1135,9 +1184,15 @@ with tabs[1]:
                         st.markdown(f"**{texts['work_activity']}:** {activity_user}")
                         st.markdown(f"**{texts['predicted_hazard']}:** {hazard_user}")
 
+                        # 수정된 테이블 - 다국어 라벨 적용
                         df_display = pd.DataFrame({
-                            texts["comparison_columns"][0]: ["빈도", "강도", "T 값", "위험등급"],
-                            "값": [str(freq), str(intensity), str(T_val), grade]
+                            texts["item_label"]: [
+                                texts["frequency_label"], 
+                                texts["intensity_label"], 
+                                texts["t_value_label"], 
+                                texts["risk_grade_label"]
+                            ],
+                            texts["value_label"]: [str(freq), str(intensity), str(T_val), grade]
                         })
                         st.dataframe(df_display.astype(str), use_container_width=True, hide_index=True)
                     with col_r2:
@@ -1182,8 +1237,14 @@ with tabs[1]:
 
                     with c_riskimp:
                         st.markdown(f"### {texts['risk_improvement_header']}")
+                        # 수정된 비교 테이블 - 다국어 라벨 적용
                         comp_df_user = pd.DataFrame({
-                            texts["comparison_columns"][0]: ["빈도", "강도", "T 값", "위험등급"],
+                            texts["comparison_columns"][0]: [
+                                texts["frequency_label"], 
+                                texts["intensity_label"], 
+                                texts["t_value_label"], 
+                                texts["risk_grade_label"]
+                            ],
                             texts["comparison_columns"][1]: [str(freq), str(intensity), str(T_val), grade],
                             texts["comparison_columns"][2]: [str(improved_freq), str(improved_intensity), str(improved_T), determine_grade(improved_T)]
                         })
