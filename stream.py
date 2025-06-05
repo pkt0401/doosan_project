@@ -719,13 +719,20 @@ def construct_prompt_phase2(sim_docs_en: pd.DataFrame, activity_en: str, hazard_
 def parse_gpt_output_phase2(gpt_output: str) -> dict:
     """
     Phase 2 GPT 출력(JSON)을 파싱하여 딕셔너리 반환 (영어 키 기준).
+    <개선된 파싱 로직>
+     1) 우선 json.loads로 시도
+     2) 실패 시, 정규표현식을 이용해 폴백 파싱
+        - "improvement_plan" 문자열만 따로 추출
+        - 나머지 필드("improved_frequency", "improved_intensity", "improved_T", "reduction_rate")는 각각 숫자만 추출
     """
     try:
+        # ─── 1) 표준 JSON 파싱 시도 ─────────────────────────────
         json_match = re.search(r'\{.*\}', gpt_output, re.DOTALL)
         if not json_match:
             raise ValueError("JSON match not found")
         import json
-        parsed = json.loads(json_match.group(0))
+        json_str = json_match.group(0)
+        parsed = json.loads(json_str)
         return {
             "improvement_plan": parsed.get("improvement_plan", ""),
             "improved_freq": parsed.get("improved_frequency", 1),
@@ -733,14 +740,40 @@ def parse_gpt_output_phase2(gpt_output: str) -> dict:
             "improved_T": parsed.get("improved_T", parsed.get("improved_frequency", 1) * parsed.get("improved_intensity", 1)),
             "reduction_rate": parsed.get("reduction_rate", 0.0)
         }
+
     except Exception as e:
-        st.error(f"Phase 2 파싱 오류: {e}")
+        # ─── 2) 폴백(Fallback) 파싱 ─────────────────────────────
+        #  2-1) improvement_plan 값만 따로 뽑기
+        plan = ""
+        m_plan = re.search(r'"improvement_plan"\s*:\s*"(?P<plan>.*?)"', gpt_output, re.DOTALL)
+        if m_plan:
+            # JSON 문자열 안에서 실제 줄바꿈을 '\n'로 변환
+            raw = m_plan.group("plan")
+            # GPT가 리턴한 스트링 내부의 실제 개행문자를 모두 '\\n'으로 치환
+            plan = raw.replace('\n', '\\n').strip()
+        else:
+            plan = "1) Educate workers and mandate PPE usage\n2) Install pedestrian walkways\n3) Provide high-visibility vests"
+
+        #  2-2) improved_frequency, improved_intensity, improved_T, reduction_rate 값 추출
+        def extract_int(key: str) -> int:
+            m = re.search(rf'"{key}"\s*:\s*(\d+)', gpt_output)
+            return int(m.group(1)) if m else 1
+
+        def extract_float(key: str) -> float:
+            m = re.search(rf'"{key}"\s*:\s*([\d\.]+)', gpt_output)
+            return float(m.group(1)) if m else 0.0
+
+        improved_freq = extract_int("improved_frequency")
+        improved_intensity = extract_int("improved_intensity")
+        improved_T = extract_int("improved_T")
+        reduction_rate = extract_float("reduction_rate")
+
         return {
-            "improvement_plan": "1) Educate workers and mandate PPE usage",
-            "improved_freq": 1,
-            "improved_intensity": 1,
-            "improved_T": 1,
-            "reduction_rate": 50.0
+            "improvement_plan": plan,
+            "improved_freq": improved_freq,
+            "improved_intensity": improved_intensity,
+            "improved_T": improved_T,
+            "reduction_rate": reduction_rate
         }
 
 def create_excel_download(result_dict: dict, similar_records: list[dict]) -> bytes:
@@ -812,9 +845,6 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
             # ─── 유사사례 시트 (PIMS 양식: 한국어+영어 혼합 헤더) ─────────────────
             if similar_records:
                 sim_df = pd.DataFrame(similar_records)
-                # 사용자가 선택한 언어로 이미 번역된 '작업활동', '유해위험요인', '개선대책'을 보관
-                # '빈도', '강도', 'T', '등급'은 원본 한국어 기준 값 그대로 사용
-                # '개선 후 빈도', '개선 후 강도' 계산
                 sim_df["개선 후 빈도"] = sim_df["빈도"].astype(int).apply(lambda x: max(1, x - 1))
                 sim_df["개선 후 강도"] = sim_df["강도"].astype(int).apply(lambda x: max(1, x - 1))
 
@@ -932,7 +962,7 @@ with tabs[1]:
                     st.error(f"데이터 로딩 중 오류: {e}")
 
     st.divider()
-    st.markdown(f"### {texts['performing_assessment'].split('.')[0]}")
+    st.markdown(f"### {texts["performing_assessment"].split('.')[0]}")
 
     # 사용자 입력
     activity = st.text_area(
@@ -968,16 +998,17 @@ with tabs[1]:
             with st.spinner(texts["performing_assessment"]):
                 try:
                     # ===== Phase 1 =====
-                    # 1) 한국어 입력 → 영어 번역
+                    # 1) 사용자가 입력한 activity(예: 한국어, 영어, 또는 스페인어)가
+                    #    영어로 번역되지 않은 상태라면 GPT에 “Translate to English” 요청
                     prompt_to_english = (
                         "Translate the following construction work activity into English. "
                         "Only provide the translation:\n\n" + activity
                     )
                     activity_en = generate_with_gpt(prompt_to_english, api_key)
                     if not activity_en:
-                        activity_en = activity
+                        activity_en = activity  # GPT 실패 시 입력 값 그대로 사용
 
-                    # 2) sim_docs(한국어 원본) → sim_docs_en(영어 번역)
+                    # 2) sim_docs(한국어 원본) → sim_docs_en(영어 번역 & 개선대책 영어 번역)
                     sim_docs = ss.retriever_pool_df.copy().reset_index(drop=True)
                     sim_docs_en = translate_similar_cases(sim_docs, api_key)
 
@@ -1031,8 +1062,6 @@ with tabs[1]:
                     # ===== 유사 사례 출력용 데이터 생성 =====
                     display_sim_records = []
                     for idx, row in sim_docs_subset.iterrows():
-                        # sim_docs_subset에는 이미 다음 컬럼이 있음:
-                        # 'activity_en', 'hazard_en', 'plan_en' 모두 영어 번역본
                         eng_act = row["activity_en"]
                         eng_haz = row["hazard_en"]
                         eng_plan = row["plan_en"]
@@ -1041,7 +1070,6 @@ with tabs[1]:
                         orig_T = row["T"]
                         orig_grade = row["등급"]
 
-                        # 사용자가 선택한 언어에 따라 표시 형태 결정
                         if result_language == "English":
                             act_disp = eng_act
                             haz_disp = eng_haz
