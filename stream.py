@@ -488,37 +488,46 @@ def generate_with_gpt(prompt: str, api_key: str, model: str="gpt-4o", max_retrie
 
 def translate_similar_cases(sim_docs: pd.DataFrame, api_key: str) -> pd.DataFrame:
     """
-    한국어 원본 sim_docs에서 영어 번역 컬럼(activity_en, hazard_en)을 생성.
+    한국어 원본 sim_docs에서 영어 번역 컬럼(activity_en, hazard_en, plan_en)을 생성.
     - sim_docs: 한국어 원본 DataFrame (칼럼: '작업활동 및 내용', '유해위험요인 및 환경측면 영향', '개선대책', ...)
-    - 반환: sim_docs_en (각 row마다 activity_en, hazard_en이 추가됨)
+    - 반환: sim_docs_en (각 row마다 activity_en, hazard_en, plan_en이 추가됨)
     """
     sim_docs_en = sim_docs.copy().reset_index(drop=True)
+    # 우선 원본 한국어를 영어라고 가정 → 영어 컬럼에 동일하게 복사
     sim_docs_en["activity_en"] = sim_docs_en["작업활동 및 내용"]
     sim_docs_en["hazard_en"] = sim_docs_en["유해위험요인 및 환경측면 영향"]
+    sim_docs_en["plan_en"] = sim_docs_en["개선대책"]
 
     for idx, row in sim_docs_en.iterrows():
-        try:
-            # (1) 작업활동 → 영어
-            act_ko = row["작업활동 및 내용"]
-            prompt_act = (
-                "Translate the following construction work activity into English. "
-                "Only provide the translation:\n\n" + act_ko
-            )
-            act_en = generate_with_gpt(prompt_act, api_key)
-            if act_en:
-                sim_docs_en.at[idx, "activity_en"] = act_en
+        # (1) 작업활동 → 영어 번역
+        act_ko = row["작업활동 및 내용"]
+        prompt_act = (
+            "Translate the following construction work activity into English. "
+            "Only provide the translation:\n\n" + act_ko
+        )
+        act_en = generate_with_gpt(prompt_act, api_key)
+        if act_en:
+            sim_docs_en.at[idx, "activity_en"] = act_en
 
-            # (2) 유해위험요인 → 영어
-            haz_ko = row["유해위험요인 및 환경측면 영향"]
-            prompt_haz = (
-                "Translate the following construction hazard into English. "
-                "Only provide the translation:\n\n" + haz_ko
-            )
-            haz_en = generate_with_gpt(prompt_haz, api_key)
-            if haz_en:
-                sim_docs_en.at[idx, "hazard_en"] = haz_en
-        except Exception:
-            continue
+        # (2) 유해위험요인 → 영어 번역
+        haz_ko = row["유해위험요인 및 환경측면 영향"]
+        prompt_haz = (
+            "Translate the following construction hazard into English. "
+            "Only provide the translation:\n\n" + haz_ko
+        )
+        haz_en = generate_with_gpt(prompt_haz, api_key)
+        if haz_en:
+            sim_docs_en.at[idx, "hazard_en"] = haz_en
+
+        # (3) 개선대책 → 영어 번역 (번호 매긴 리스트 유지)
+        plan_ko = row["개선대책"]
+        prompt_plan = (
+            "Translate the following safety improvement measures into English. "
+            "Keep the numbered format. Only provide the translation:\n\n" + plan_ko
+        )
+        plan_en = generate_with_gpt(prompt_plan, api_key)
+        if plan_en:
+            sim_docs_en.at[idx, "plan_en"] = plan_en
 
     return sim_docs_en
 
@@ -636,15 +645,8 @@ def construct_prompt_phase2(sim_docs_en: pd.DataFrame, activity_en: str, hazard_
     count = 0
     for _, row in sim_docs_en.head(10).iterrows():
         try:
-            # (1) 한국어 개선대책 → 영어 번역
-            plan_ko = row["개선대책"]
-            prompt_plan_trans = (
-                "Translate the following safety improvement measures into English. "
-                "Keep the numbered format. Only provide the translation:\n\n" + plan_ko
-            )
-            plan_en = generate_with_gpt(prompt_plan_trans, api_key)
-            if not plan_en:
-                plan_en = plan_ko
+            # (1) plan_en: 영어 개선대책
+            plan_en = row["plan_en"]
 
             orig_freq = int(row["빈도"])
             orig_intensity = int(row["강도"])
@@ -1029,35 +1031,37 @@ with tabs[1]:
                     # ===== 유사 사례 출력용 데이터 생성 =====
                     display_sim_records = []
                     for idx, row in sim_docs_subset.iterrows():
-                        orig_row = sim_docs.iloc[I[0][idx]]  # 한국어 원본
-                        # 원본(한글)과 영어 번역을 모두 저장
-                        act_ko = orig_row["작업활동 및 내용"]
-                        haz_ko = orig_row["유해위험요인 및 환경측면 영향"]
-                        plan_ko = orig_row["개선대책"]
-                        act_en = row["activity_en"]
-                        haz_en = row["hazard_en"]
+                        # sim_docs_subset에는 이미 다음 컬럼이 있음:
+                        # 'activity_en', 'hazard_en', 'plan_en' 모두 영어 번역본
+                        eng_act = row["activity_en"]
+                        eng_haz = row["hazard_en"]
+                        eng_plan = row["plan_en"]
+                        orig_freq = row["빈도"]
+                        orig_intensity = row["강도"]
+                        orig_T = row["T"]
+                        orig_grade = row["등급"]
 
+                        # 사용자가 선택한 언어에 따라 표시 형태 결정
                         if result_language == "English":
-                            act_disp = act_en
-                            haz_disp = haz_en
-                            # 유사 사례의 개선대책은 한국어 원본이지만, 영어 사용자에게는 영어로 번역해 보여줘야 함
-                            plan_disp = translate_output(plan_ko, "English", api_key)
+                            act_disp = eng_act
+                            haz_disp = eng_haz
+                            plan_disp = eng_plan
                         elif result_language == "Chinese":
-                            act_disp = translate_output(act_en, "Chinese", api_key)
-                            haz_disp = translate_output(haz_en, "Chinese", api_key)
-                            plan_disp = translate_output(plan_ko, "Chinese", api_key)
+                            act_disp = translate_output(eng_act, "Chinese", api_key)
+                            haz_disp = translate_output(eng_haz, "Chinese", api_key)
+                            plan_disp = translate_output(eng_plan, "Chinese", api_key)
                         else:  # Korean
-                            act_disp = act_ko
-                            haz_disp = haz_ko
-                            plan_disp = plan_ko
+                            act_disp = translate_output(eng_act, "Korean", api_key)
+                            haz_disp = translate_output(eng_haz, "Korean", api_key)
+                            plan_disp = translate_output(eng_plan, "Korean", api_key)
 
                         display_sim_records.append({
                             "작업활동": act_disp,
                             "유해위험요인": haz_disp,
-                            "빈도": orig_row["빈도"],
-                            "강도": orig_row["강도"],
-                            "T": orig_row["T"],
-                            "등급": orig_row["등급"],
+                            "빈도": orig_freq,
+                            "강도": orig_intensity,
+                            "T": orig_T,
+                            "등급": orig_grade,
                             "개선대책": plan_disp
                         })
 
