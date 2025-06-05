@@ -1196,14 +1196,26 @@ with tabs[1]:
                     col_vis1, col_vis2 = st.columns(2)
                     with col_vis1:
                         st.markdown("**개선 전 위험도**")
-                        progress_before = min(T / 25, 1.0)
-                        st.progress(progress_before)
-                        st.caption(f"T값: {T} (등급: {grade})")
+                        grade_color = get_grade_color(grade)
+                        st.markdown(f"""
+                        <div style="background-color:{grade_color}; color:white; padding:15px; 
+                                    border-radius:10px; text-align:center; margin:10px 0;">
+                            <h3 style="margin:0;">등급 {grade}</h3>
+                            <p style="margin:5px 0; font-size:1.2em;">T값: {T}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
                     with col_vis2:
                         st.markdown("**개선 후 위험도**")
-                        progress_after = min(improved_T / 25, 1.0)
-                        st.progress(progress_after)
-                        st.caption(f"T값: {improved_T} (등급: {determine_grade(improved_T)})")
+                        improved_grade = determine_grade(improved_T)
+                        improved_grade_color = get_grade_color(improved_grade)
+                        st.markdown(f"""
+                        <div style="background-color:{improved_grade_color}; color:white; padding:15px; 
+                                    border-radius:10px; text-align:center; margin:10px 0;">
+                            <h3 style="margin:0;">등급 {improved_grade}</h3>
+                            <p style="margin:5px 0; font-size:1.2em;">T값: {improved_T}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
 
                     ss.last_assessment = {
                         "activity": activity,
