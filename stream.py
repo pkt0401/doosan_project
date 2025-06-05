@@ -826,25 +826,34 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             workbook = writer.book
 
+def create_excel_download(result_dict: dict, similar_records: list[dict]) -> bytes:
+    output = io.BytesIO()
+    try:
+        # 현재 날짜 가져오기
+        from datetime import datetime
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        
+        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+            workbook = writer.book
+
             # ─── 메인 결과를 데이터셋 형식에 맞춰 단일 시트로 생성 ─────────────────
-            # 데이터셋의 컬럼 구조와 동일하게 생성
+            # 원본 데이터셋의 정확한 컬럼 구조와 동일하게 생성
             main_result_df = pd.DataFrame({
-                texts["col_activity_header"]: [result_dict["activity"]],
-                texts["col_hazard_header"]: [result_dict["hazard"]],
+                "작업활동 및 내용\nWork & Contents": [result_dict["activity"]],
+                "유해위험요인 및 환경측면 영향\nHazard & Risk": [result_dict["hazard"]],
+                "EHS": ["S"],  # EHS는 "S"로 설정
                 "피해형태 및 환경영향\nDamage & Effect": [""],  # 빈 값으로 설정
-                texts["col_ehs_header"]: ["S"],  # EHS는 "S"로 설정
-                texts["col_risk_likelihood_header"]: [result_dict["freq"]],
-                texts["col_risk_severity_header"]: [result_dict["intensity"]],
+                "빈도\nRisk Rate": [result_dict["freq"]],  # 첫 번째 위험성 Risk Rate 하위
+                "강도\nSeverity": [result_dict["intensity"]],
                 "T": [result_dict["T"]],
-                "등급": [result_dict["grade"]],
-                texts["col_control_header"]: [result_dict["improvement_plan"]],
-                texts["col_incharge_header"]: [""],  # 개선담당자는 빈칸
-                texts["col_duedate_header"]: [current_date],  # 개선일자는 현재 날짜
-                texts["col_after_likelihood_header"]: [result_dict["improved_freq"]],
-                texts["col_after_severity_header"]: [result_dict["improved_intensity"]],
-                "개선 후 T": [result_dict["improved_T"]],
-                "개선 후 등급": [determine_grade(result_dict["improved_T"])],
-                "위험 감소율 (RRR)": [f"{result_dict['rrr']:.2f}%"]
+                "등급\nRate": [result_dict["grade"]],
+                "개선대책 및 세부관리방안\nCorrective Action": [result_dict["improvement_plan"]],
+                "개선담당자\nResponsibility": [""],  # 개선담당자는 빈칸
+                "개선일자\nAction Date": [current_date],  # 개선일자는 현재 날짜
+                "빈도\nLikelihood": [result_dict["improved_freq"]],  # 두 번째 위험성 Risk Rate 하위
+                "강도\nSeverity": [result_dict["improved_intensity"]],
+                "T ": [result_dict["improved_T"]],  # 공백으로 구분
+                "등급\nRate ": [determine_grade(result_dict["improved_T"])]  # 공백으로 구분
             })
             
             main_result_df.to_excel(writer, sheet_name="위험성평가결과", index=False)
@@ -867,21 +876,21 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
                 sim_df["개선 후 등급"] = sim_df["개선 후 T"].apply(determine_grade)
 
                 export_df = pd.DataFrame({
-                    texts["col_activity_header"]: sim_df["작업활동"],
-                    texts["col_hazard_header"]: sim_df["유해위험요인"],
+                    "작업활동 및 내용\nWork & Contents": sim_df["작업활동"],
+                    "유해위험요인 및 환경측면 영향\nHazard & Risk": sim_df["유해위험요인"],
+                    "EHS": ["S" for _ in range(len(sim_df))],  # EHS는 "S"로 설정
                     "피해형태 및 환경영향\nDamage & Effect": ["" for _ in range(len(sim_df))],
-                    texts["col_ehs_header"]: ["S" for _ in range(len(sim_df))],  # EHS는 "S"로 설정
-                    texts["col_risk_likelihood_header"]: sim_df["빈도"],
-                    texts["col_risk_severity_header"]: sim_df["강도"],
+                    "빈도\nRisk Rate": sim_df["빈도"],
+                    "강도\nSeverity": sim_df["강도"],
                     "T": sim_df["T"],
-                    "등급": sim_df["등급"],
-                    texts["col_control_header"]: sim_df["개선대책"],
-                    texts["col_incharge_header"]: ["" for _ in range(len(sim_df))],  # 개선담당자는 빈칸
-                    texts["col_duedate_header"]: [current_date for _ in range(len(sim_df))],  # 개선일자는 현재 날짜
-                    texts["col_after_likelihood_header"]: sim_df["개선 후 빈도"],
-                    texts["col_after_severity_header"]: sim_df["개선 후 강도"],
-                    "개선 후 T": sim_df["개선 후 T"],
-                    "개선 후 등급": sim_df["개선 후 등급"]
+                    "등급\nRate": sim_df["등급"],
+                    "개선대책 및 세부관리방안\nCorrective Action": sim_df["개선대책"],
+                    "개선담당자\nResponsibility": ["" for _ in range(len(sim_df))],  # 개선담당자는 빈칸
+                    "개선일자\nAction Date": [current_date for _ in range(len(sim_df))],  # 개선일자는 현재 날짜
+                    "빈도\nLikelihood": sim_df["개선 후 빈도"],
+                    "강도\nSeverity": sim_df["개선 후 강도"],
+                    "T ": sim_df["개선 후 T"],
+                    "등급\nRate ": sim_df["개선 후 등급"]
                 })
                 export_df.to_excel(writer, sheet_name="유사사례", index=False)
                 ws_sim = writer.sheets["유사사례"]
@@ -902,22 +911,21 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
         
         # 메인 결과를 CSV로 생성
         main_result_df = pd.DataFrame({
-            texts["col_activity_header"]: [result_dict["activity"]],
-            texts["col_hazard_header"]: [result_dict["hazard"]],
+            "작업활동 및 내용\nWork & Contents": [result_dict["activity"]],
+            "유해위험요인 및 환경측면 영향\nHazard & Risk": [result_dict["hazard"]],
+            "EHS": ["S"],  # EHS는 "S"로 설정
             "피해형태 및 환경영향\nDamage & Effect": [""],
-            texts["col_ehs_header"]: ["S"],  # EHS는 "S"로 설정
-            texts["col_risk_likelihood_header"]: [result_dict["freq"]],
-            texts["col_risk_severity_header"]: [result_dict["intensity"]],
+            "빈도\nRisk Rate": [result_dict["freq"]],
+            "강도\nSeverity": [result_dict["intensity"]],
             "T": [result_dict["T"]],
-            "등급": [result_dict["grade"]],
-            texts["col_control_header"]: [result_dict["improvement_plan"]],
-            texts["col_incharge_header"]: [""],  # 개선담당자는 빈칸
-            texts["col_duedate_header"]: [datetime.now().strftime("%Y-%m-%d")],  # 개선일자는 현재 날짜
-            texts["col_after_likelihood_header"]: [result_dict["improved_freq"]],
-            texts["col_after_severity_header"]: [result_dict["improved_intensity"]],
-            "개선 후 T": [result_dict["improved_T"]],
-            "개선 후 등급": [determine_grade(result_dict["improved_T"])],
-            "위험 감소율 (RRR)": [f"{result_dict['rrr']:.2f}%"]
+            "등급\nRate": [result_dict["grade"]],
+            "개선대책 및 세부관리방안\nCorrective Action": [result_dict["improvement_plan"]],
+            "개선담당자\nResponsibility": [""],  # 개선담당자는 빈칸
+            "개선일자\nAction Date": [datetime.now().strftime("%Y-%m-%d")],  # 개선일자는 현재 날짜
+            "빈도\nLikelihood": [result_dict["improved_freq"]],
+            "강도\nSeverity": [result_dict["improved_intensity"]],
+            "T ": [result_dict["improved_T"]],
+            "등급\nRate ": [determine_grade(result_dict["improved_T"])]
         })
         
         main_result_df.to_csv(csv_buffer, index=False, encoding="utf-8-sig")
