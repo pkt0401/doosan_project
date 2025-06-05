@@ -13,7 +13,8 @@ system_texts = {
     "Korean": {
         "title": "Artificial Intelligence Risk Assessment",
         "tab_overview": "시스템 개요",
-        "tab_assessment": "위험성 평가 & 개선대책",
+        "tab_phase1": "위험성 평가 (Phase 1)",
+        "tab_phase2": "개선대책 생성 (Phase 2)",
         "overview_header": "LLM 기반 위험성평가 시스템",
         "overview_text": "두산에너빌리티 AI Risk Assessment는 국내 및 해외 건설현장 '수시위험성평가' 및 '노동부 중대재해 사례'를 학습하여 개발된 자동 위험성평가 프로그램입니다. 생성된 위험성평가는 반드시 수시 위험성평가 심의회를 통해 검증 후 사용하시기 바랍니다.",
         "features_title": "시스템 특징 및 구성요소",
@@ -34,6 +35,7 @@ system_texts = {
         - 위험 감소율(RRR) 정량적 산출
         - 공종/공정별 최적 개선대책 데이터베이스 구축
         """,
+        "phase1_header": "위험성 평가 자동화 (Phase 1)",
         "api_key_label": "OpenAI API 키를 입력하세요:",
         "dataset_label": "데이터셋 선택",
         "load_data_btn": "데이터 로드 및 인덱스 구성",
@@ -47,8 +49,8 @@ system_texts = {
         "include_similar": "유사 사례 포함",
         "result_language_label": "결과 언어 선택:",
         "run_button": "🚀 위험성 평가 실행",
-        "phase1_header": "## 📋 Phase 1: 위험성 평가 결과",
-        "phase2_header": "## 🛠️ Phase 2: 개선대책 생성 결과",
+        "phase1_results_header": "## 📋 Phase 1: 위험성 평가 결과",
+        "phase2_results_header": "## 🛠️ Phase 2: 개선대책 생성 결과",
         "improvement_plan_header": "### 개선대책",
         "risk_improvement_header": "### 개선 전후 위험성 비교",
         "risk_table_pre": "Pre-Improvement",
@@ -60,7 +62,8 @@ system_texts = {
     "English": {
         "title": "Artificial Intelligence Risk Assessment",
         "tab_overview": "System Overview",
-        "tab_assessment": "Risk Assessment & Improvement",
+        "tab_phase1": "Risk Assessment (Phase 1)",
+        "tab_phase2": "Improvement Measures (Phase 2)",
         "overview_header": "LLM-based Risk Assessment System",
         "overview_text": "Doosan Enerbility AI Risk Assessment is an automated program trained on both on-demand risk-assessment reports from domestic and overseas construction sites and major-accident cases compiled by Korea's Ministry of Employment and Labor. Please ensure that every generated assessment is reviewed and approved by the On-Demand Risk Assessment Committee before it is used.",
         "features_title": "System Features and Components",
@@ -81,6 +84,7 @@ system_texts = {
         - Quantitative calculation of Risk Reduction Rate (RRR)
         - Building a database of optimal improvement measures by work type/process
         """,
+        "phase1_header": "Risk Assessment Automation (Phase 1)",
         "api_key_label": "Enter OpenAI API Key:",
         "dataset_label": "Select Dataset",
         "load_data_btn": "Load Data and Configure Index",
@@ -94,8 +98,8 @@ system_texts = {
         "include_similar": "Include Similar Cases",
         "result_language_label": "Select Result Language:",
         "run_button": "🚀 Run Risk Assessment",
-        "phase1_header": "## 📋 Phase 1: Risk Assessment Results",
-        "phase2_header": "## 🛠️ Phase 2: Improvement Measures Results",
+        "phase1_results_header": "## 📋 Phase 1: Risk Assessment Results",
+        "phase2_results_header": "## 🛠️ Phase 2: Improvement Measures Results",
         "improvement_plan_header": "### Control Measures",
         "risk_improvement_header": "### Pre/Post-Improvement Risk Comparison",
         "risk_table_pre": "Pre-Improvement",
@@ -107,7 +111,8 @@ system_texts = {
     "Chinese": {
         "title": "Artificial Intelligence Risk Assessment",
         "tab_overview": "系统概述",
-        "tab_assessment": "风险评估 & 改进",
+        "tab_phase1": "风险评估 (第1阶段)",
+        "tab_phase2": "改进措施 (第2阶段)",
         "overview_header": "基于LLM的风险评估系统",
         "overview_text": "Doosan Enerbility AI 风险评估系统是一款自动化风险评估程序，基于国内外施工现场的'临时风险评估'数据以及韩国雇佣劳动部的重大事故案例进行训练开发而成。生成的风险评估结果必须经过临时风险评估审议委员会的审核后方可使用。",
         "features_title": "系统特点和组件",
@@ -128,6 +133,7 @@ system_texts = {
         - 风险降低率(RRR)的定量计算
         - 建立按工作类型/工序的最佳改进措施数据库
         """,
+        "phase1_header": "风险评估自动化 (第1阶段)",
         "api_key_label": "输入OpenAI API密钥：",
         "dataset_label": "选择数据集",
         "load_data_btn": "加载数据和配置索引",
@@ -141,8 +147,8 @@ system_texts = {
         "include_similar": "包含相似案例",
         "result_language_label": "选择结果语言：",
         "run_button": "🚀 运行风险评估",
-        "phase1_header": "## 📋 第1阶段：风险评估结果",
-        "phase2_header": "## 🛠️ 第2阶段：改进措施结果",
+        "phase1_results_header": "## 📋 第1阶段：风险评估结果",
+        "phase2_results_header": "## 🛠️ 第2阶段：改进措施结果",
         "improvement_plan_header": "### 控制措施",
         "risk_improvement_header": "### 改进前后风险比较",
         "risk_table_pre": "改进前",
@@ -187,8 +193,7 @@ for key, default in {
     if key not in ss:
         ss[key] = default
 
-# ----------------- 언어 선택 UI -----------------
-# 결과 언어를 하나만 선택하도록 함
+# ----------------- 결과 언어 선택 -----------------
 result_language = st.selectbox(
     "결과 언어 선택:",
     ["Korean", "English", "Chinese"],
@@ -200,14 +205,13 @@ texts = system_texts[result_language]
 st.markdown(f'<div class="main-header">{texts["title"]}</div>', unsafe_allow_html=True)
 
 # ----------------- 탭 구성 -----------------
-tabs = st.tabs([texts["tab_overview"], texts["tab_assessment"]])
+tabs = st.tabs([texts["tab_overview"], texts["tab_phase1"] + " & " + texts["tab_phase2"]])
 
 # -----------------------------------------------------------------------------  
 # --------------------------- Overview 탭 -------------------------------------  
 # -----------------------------------------------------------------------------  
 with tabs[0]:
     st.markdown(f'<div class="sub-header">{texts["overview_header"]}</div>', unsafe_allow_html=True)
-
     col_overview, col_features = st.columns([3, 2])
     with col_overview:
         st.markdown(f"<div class='info-text'>{texts['overview_text']}</div>", unsafe_allow_html=True)
@@ -220,7 +224,7 @@ with tabs[0]:
 # ---------------------- Risk Assessment & Improvement 탭 ----------------------  
 # -----------------------------------------------------------------------------  
 with tabs[1]:
-    st.markdown(f'<div class="sub-header">{texts["tab_assessment"]}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sub-header">{texts["tab_phase1"]} & {texts["tab_phase2"]}</div>', unsafe_allow_html=True)
 
     col_api, col_dataset = st.columns([2, 1])
     with col_api:
@@ -231,19 +235,17 @@ with tabs[1]:
             ["건축", "토목", "플랜트"]
         )
 
-    # --- 데이터 로드 및 인덱스 구성 버튼 ---
     if ss.retriever_pool_df is None or st.button(texts["load_data_btn"], type="primary"):
         if not api_key:
             st.warning(texts["api_key_warning"])
         else:
             with st.spinner(texts["data_loading"]):
                 try:
-                    # 데이터 불러오기
+                    # 데이터 로드 함수
                     def load_data(name: str):
                         if os.path.exists(f"{name}.xlsx"):
                             df = pd.read_excel(f"{name}.xlsx")
                         else:
-                            # 샘플 데이터
                             data = {
                                 "작업활동 및 내용": [
                                     "임시 현장 저장소에서 포크리프트를 이용한 철골 구조재 하역작업",
@@ -295,7 +297,6 @@ with tabs[1]:
                     max_texts = min(len(to_embed), 30)
                     st.info(texts["demo_limit_info"].format(max_texts=max_texts))
 
-                    # 임베딩 생성
                     def embed_texts(texts_list, api_key, model="text-embedding-3-large"):
                         client = OpenAI(api_key=api_key)
                         embeds = []
@@ -351,10 +352,8 @@ with tabs[1]:
         else:
             with st.spinner("처리 중..."):
                 try:
-                    # === Phase 1: Risk Assessment ===
                     client = OpenAI(api_key=api_key)
 
-                    # Query embedding
                     def embed_single(text):
                         resp = client.embeddings.create(model="text-embedding-3-large", input=[text])
                         return resp.data[0].embedding
@@ -363,19 +362,21 @@ with tabs[1]:
                     D, I = ss.index.search(np.array([q_emb], dtype="float32"), k=min(10, len(ss.retriever_pool_df)))
                     sim_docs = ss.retriever_pool_df.iloc[I[0]]
 
-                    # 1) Hazard prediction prompt (English internal)
+                    # Phase 1: Hazard Prediction (English internal)
                     def construct_hazard_prompt(docs, activity):
                         prompt = "Here are examples of work activities and associated hazardous factors:\n\n"
-                        for i, row in docs.head(5).iterrows():
-                            prompt += f"Case {i+1}:\n- Work Activity: {row['작업활동 및 내용']}\n- Hazardous Factors: {row['유해위험요인 및 환경측면 영향']}\n\n"
+                        for idx, row in docs.head(5).iterrows():
+                            prompt += f"Case {idx+1}:\n- Work Activity: {row['작업활동 및 내용']}\n- Hazardous Factors: {row['유해위험요인 및 환경측면 영향']}\n\n"
                         prompt += f"Based on the above examples, predict the main hazardous factors for the following work activity:\n\nWork Activity: {activity}\n\nPredicted Hazardous Factors: "
                         return prompt
 
                     hazard_prompt = construct_hazard_prompt(sim_docs, activity)
                     hazard_en = client.chat.completions.create(
                         model="gpt-4o",
-                        messages=[{"role": "system", "content": "You are a construction site risk assessment expert. Provide practical responses in English."},
-                                  {"role": "user", "content": hazard_prompt}],
+                        messages=[
+                            {"role": "system", "content": "You are a construction site risk assessment expert. Provide practical responses in English."},
+                            {"role": "user",   "content": hazard_prompt}
+                        ],
                         temperature=0.1,
                         max_tokens=200
                     ).choices[0].message.content.strip()
@@ -384,23 +385,27 @@ with tabs[1]:
                     if result_language == "Korean":
                         hazard = client.chat.completions.create(
                             model="gpt-4o",
-                            messages=[{"role": "system", "content": "Translate English to Korean. Keep technical terms."},
-                                      {"role": "user", "content": hazard_en}],
+                            messages=[
+                                {"role": "system", "content": "Translate English to Korean. Keep technical terms."},
+                                {"role": "user",   "content": hazard_en}
+                            ],
                             temperature=0.1,
                             max_tokens=200
                         ).choices[0].message.content.strip()
                     elif result_language == "Chinese":
                         hazard = client.chat.completions.create(
                             model="gpt-4o",
-                            messages=[{"role": "system", "content": "Translate English to Chinese. Keep technical terms."},
-                                      {"role": "user", "content": hazard_en}],
+                            messages=[
+                                {"role": "system", "content": "Translate English to Chinese. Keep technical terms."},
+                                {"role": "user",   "content": hazard_en}
+                            ],
                             temperature=0.1,
                             max_tokens=200
                         ).choices[0].message.content.strip()
                     else:
                         hazard = hazard_en
 
-                    # 2) Risk assessment prompt (English)
+                    # Phase 1: Risk Assessment (English internal)
                     def construct_risk_prompt(docs, activity, hazard_en):
                         prompt = (
                             "Construction site risk assessment criteria:\n"
@@ -409,12 +414,12 @@ with tabs[1]:
                             "- T-value = Frequency × Severity\n\n"
                             "Reference cases:\n\n"
                         )
-                        for i, row in docs.head(3).iterrows():
+                        for idx, row in docs.head(3).iterrows():
                             inp = f"{row['작업활동 및 내용']} - {row['유해위험요인 및 환경측면 영향']}"
-                            freq = int(row["빈도"])
-                            sev = int(row["강도"])
-                            t_val = freq * sev
-                            prompt += f"Case {i+1}:\nInput: {inp}\nAssessment: Frequency={freq}, Severity={sev}, T-value={t_val}\n\n"
+                            freq_val = int(row["빈도"])
+                            sev_val = int(row["강도"])
+                            t_val = freq_val * sev_val
+                            prompt += f"Case {idx+1}:\nInput: {inp}\nAssessment: Frequency={freq_val}, Severity={sev_val}, T-value={t_val}\n\n"
                         prompt += (
                             f"Based on the above criteria and cases, assess the following:\n\n"
                             f"Work Activity: {activity}\n"
@@ -427,13 +432,14 @@ with tabs[1]:
                     risk_prompt = construct_risk_prompt(sim_docs, activity, hazard_en)
                     risk_resp = client.chat.completions.create(
                         model="gpt-4o",
-                        messages=[{"role": "system", "content": "You are a construction site risk assessment expert. Provide practical responses in English."},
-                                  {"role": "user", "content": risk_prompt}],
+                        messages=[
+                            {"role": "system", "content": "You are a construction site risk assessment expert. Provide practical responses in English."},
+                            {"role": "user",   "content": risk_prompt}
+                        ],
                         temperature=0.1,
                         max_tokens=200
                     ).choices[0].message.content.strip()
 
-                    # Parse JSON
                     match = re.search(r'\{"frequency":\s*([1-5]),\s*"severity":\s*([1-5]),\s*"T":\s*([0-9]+)\}', risk_resp)
                     if match:
                         freq = int(match.group(1))
@@ -459,10 +465,10 @@ with tabs[1]:
 
                     grade = determine_grade(T)
 
-                    # === Phase 2: Improvement Measures ===
+                    # Phase 2: Improvement Measures (English internal)
                     def construct_improvement_prompt(docs, activity, hazard_en, freq, sev, T):
                         prompt = ""
-                        for i, row in docs.head(3).iterrows():
+                        for idx, row in docs.head(3).iterrows():
                             plan = row.get("개선대책", "")
                             orig_f = int(row["빈도"])
                             orig_s = int(row["강도"])
@@ -471,7 +477,7 @@ with tabs[1]:
                             new_s = max(1, orig_s - 1)
                             new_t = new_f * new_s
                             prompt += (
-                                f"Example {i+1}:\n"
+                                f"Example {idx+1}:\n"
                                 f"Input Work Activity: {row['작업활동 및 내용']}\n"
                                 f"Input Hazardous Factors: {row['유해위험요인 및 환경측면 영향']}\n"
                                 f"Input Original Frequency: {orig_f}\n"
@@ -507,13 +513,14 @@ with tabs[1]:
                     imp_prompt = construct_improvement_prompt(sim_docs, activity, hazard_en, freq, sev, T)
                     imp_resp = client.chat.completions.create(
                         model="gpt-4o",
-                        messages=[{"role": "system", "content": "You are a construction site risk assessment expert. Provide practical responses in English."},
-                                  {"role": "user", "content": imp_prompt}],
+                        messages=[
+                            {"role": "system", "content": "You are a construction site risk assessment expert. Provide practical responses in English."},
+                            {"role": "user",   "content": imp_prompt}
+                        ],
                         temperature=0.1,
                         max_tokens=300
                     ).choices[0].message.content.strip()
 
-                    # Parse improvement JSON
                     imp_match = re.search(r'\{.*\}', imp_resp, re.DOTALL)
                     if not imp_match:
                         st.error(texts["parsing_error"])
@@ -530,28 +537,31 @@ with tabs[1]:
                         st.error(texts["parsing_error"])
                         st.stop()
 
-                    # Translate control measures if needed
                     if result_language == "Korean":
                         ctrl = client.chat.completions.create(
                             model="gpt-4o",
-                            messages=[{"role": "system", "content": "Translate English to Korean. Keep technical terms."},
-                                      {"role": "user", "content": ctrl_en}],
+                            messages=[
+                                {"role": "system", "content": "Translate English to Korean. Keep technical terms."},
+                                {"role": "user",   "content": ctrl_en}
+                            ],
                             temperature=0.1,
                             max_tokens=200
                         ).choices[0].message.content.strip()
                     elif result_language == "Chinese":
                         ctrl = client.chat.completions.create(
                             model="gpt-4o",
-                            messages=[{"role": "system", "content": "Translate English to Chinese. Keep technical terms."},
-                                      {"role": "user", "content": ctrl_en}],
+                            messages=[
+                                {"role": "system", "content": "Translate English to Chinese. Keep technical terms."},
+                                {"role": "user",   "content": ctrl_en}
+                            ],
                             temperature=0.1,
                             max_tokens=200
                         ).choices[0].message.content.strip()
                     else:
                         ctrl = ctrl_en
 
-                    # === Display Results ===
-                    st.markdown(texts["phase1_header"])
+                    # === 결과 표시 ===
+                    st.markdown(texts["phase1_results_header"])
                     col1, col2 = st.columns([2, 1])
                     with col1:
                         st.markdown(f"**작업활동 / Work Activity:** {activity}")
@@ -573,30 +583,28 @@ with tabs[1]:
 
                     if include_similar_cases:
                         st.markdown("### 🔍 유사한 사례 / Similar Cases")
-                        for i in range(len(sim_docs)):
-                            doc = sim_docs.iloc[i]
-                            plan_candidate, imp_f, imp_i, imp_t = "", max(1, int(doc["빈도"]) - 1), max(1, int(doc["강도"]) - 1), None
-                            if "개선대책" in doc and pd.notna(doc["개선대책"]):
-                                plan_candidate = doc["개선대책"]
+                        for idx, row in sim_docs.iterrows():
+                            plan_candidate = row.get("개선대책", "")
+                            imp_f = max(1, int(row["빈도"]) - 1)
+                            imp_i = max(1, int(row["강도"]) - 1)
                             imp_t = imp_f * imp_i
-                            with st.expander(f"사례 {i+1}: {doc['작업활동 및 내용'][:30]}…"):
+                            with st.expander(f"사례 {idx+1}: {row['작업활동 및 내용'][:30]}…"):
                                 c1, c2 = st.columns(2)
                                 with c1:
-                                    st.write(f"**작업활동 / Work Activity:** {doc['작업활동 및 내용']}")
-                                    st.write(f"**유해위험요인 / Hazardous Factors:** {doc['유해위험요인 및 환경측면 영향']}")
-                                    st.write(f"**빈도 / Frequency:** {doc['빈도']}")
-                                    st.write(f"**강도 / Severity:** {doc['강도']}")
-                                    st.write(f"**T값 / T-value:** {doc['T']} (Grade: {doc['등급']})")
+                                    st.write(f"**작업활동 / Work Activity:** {row['작업활동 및 내용']}")
+                                    st.write(f"**유해위험요인 / Hazardous Factors:** {row['유해위험요인 및 환경측면 영향']}")
+                                    st.write(f"**빈도 / Frequency:** {row['빈도']}")
+                                    st.write(f"**강도 / Severity:** {row['강도']}")
+                                    st.write(f"**T값 / T-value:** {row['T']} (Grade: {row['등급']})")
                                 with c2:
                                     st.write(f"**개선대책 / Control Measures:**")
                                     formatted = re.sub(r"\s*\n\s*", "<br>", plan_candidate.strip())
                                     st.markdown(formatted, unsafe_allow_html=True)
 
-                    st.markdown(texts["phase2_header"])
+                    st.markdown(texts["phase2_results_header"])
                     col3, col4 = st.columns([3, 2])
                     with col3:
                         st.markdown(f"### {texts['improvement_plan_header']}")
-                        # 고정된 개선대책 텍스트 예시 (줄바꿈 포함)
                         st.markdown(
                             """
 1) 모든 적재물은 적절한 래싱 벨트와 고정 장치를 사용하여 안전하게 고정합니다.<br>
