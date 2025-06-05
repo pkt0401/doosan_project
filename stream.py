@@ -816,15 +816,6 @@ def parse_gpt_output_phase2(gpt_output: str) -> dict:
             "reduction_rate": r_rate
         }
 
-def create_excel_download(result_dict: dict, similar_records: list[dict]) -> bytes:
-    output = io.BytesIO()
-    try:
-        # 현재 날짜 가져오기
-        from datetime import datetime
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        
-        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            workbook = writer.book
 
 def create_excel_download(result_dict: dict, similar_records: list[dict]) -> bytes:
     output = io.BytesIO()
