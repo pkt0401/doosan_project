@@ -90,7 +90,8 @@ system_texts = {
         "phases_detail": "평가+개선",
         "risk_grades": "위험등급",
         "grades_count": "5등급",
-        "grades_detail": "A~E"
+        "grades_detail": "A~E",
+        "dataset_options": ["건축", "토목", "플랜트"]
     },
     "English": {
         "title": "Artificial Intelligence Risk Assessment",
@@ -171,7 +172,8 @@ system_texts = {
         "phases_detail": "Assessment+Improvement",
         "risk_grades": "Risk Grades",
         "grades_count": "5 Grades",
-        "grades_detail": "A~E"
+        "grades_detail": "A~E",
+        "dataset_options": ["Architecture", "Civil", "Plant"]
     },
     "Chinese": {
         "title": "Artificial Intelligence Risk Assessment",
@@ -252,7 +254,8 @@ system_texts = {
         "phases_detail": "评估+改进",
         "risk_grades": "风险等级",
         "grades_count": "5个等级",
-        "grades_detail": "A~E"
+        "grades_detail": "A~E",
+        "dataset_options": ["建筑", "土木", "工厂"]
     }
 }
 
@@ -330,11 +333,11 @@ def determine_grade(value: int):
 def get_grade_color(grade):
     """위험등급별 색상 반환"""
     colors = {
-        'A': '#ff1744',
-        'B': '#ff9800',
-        'C': '#ffc107',
-        'D': '#4caf50',
-        'E': '#2196f3',
+        'A': '#ff1744',  # 빨간색
+        'B': '#ff9800',  # 주황색  
+        'C': '#ffc107',  # 노란색
+        'D': '#4caf50',  # 초록색
+        'E': '#2196f3',  # 파란색
     }
     return colors.get(grade, '#808080')
 
@@ -375,8 +378,17 @@ def _extract_improvement_info(row):
 def load_data(selected_dataset_name: str):
     """데이터 로드 및 전처리"""
     try:
-        if os.path.exists(f"{selected_dataset_name}.xlsx"):
-            df = pd.read_excel(f"{selected_dataset_name}.xlsx")
+        # 언어별 데이터셋명을 한국어 파일명으로 매핑
+        dataset_mapping = {
+            "건축": "건축", "토목": "토목", "플랜트": "플랜트",
+            "Architecture": "건축", "Civil": "토목", "Plant": "플랜트",
+            "建筑": "건축", "土木": "토목", "工厂": "플랜트"
+        }
+        
+        actual_filename = dataset_mapping.get(selected_dataset_name, selected_dataset_name)
+        
+        if os.path.exists(f"{actual_filename}.xlsx"):
+            df = pd.read_excel(f"{actual_filename}.xlsx")
         else:
             return create_sample_data()
 
@@ -1006,7 +1018,7 @@ with tabs[1]:
     with col_dataset:
         dataset_name = st.selectbox(
             texts["dataset_label"],
-            ["건축", "토목", "플랜트"],
+            texts["dataset_options"],
             key="dataset_all"
         )
 
