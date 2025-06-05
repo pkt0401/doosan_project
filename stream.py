@@ -851,7 +851,7 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
                 "개선담당자\nResponsibility": [""],  # 개선담당자는 빈칸
                 "개선일자\nAction Date": [current_date],  # 개선일자는 현재 날짜
                 "빈도\nLikelihood": [result_dict["improved_freq"]],  # 두 번째 위험성 Risk Rate 하위
-                "강도\nSeverity": [result_dict["improved_intensity"]],
+                "강도\nSeverity ": [result_dict["improved_intensity"]],  # 공백으로 구분
                 "T ": [result_dict["improved_T"]],  # 공백으로 구분
                 "등급\nRate ": [determine_grade(result_dict["improved_T"])]  # 공백으로 구분
             })
@@ -888,7 +888,7 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
                     "개선담당자\nResponsibility": ["" for _ in range(len(sim_df))],  # 개선담당자는 빈칸
                     "개선일자\nAction Date": [current_date for _ in range(len(sim_df))],  # 개선일자는 현재 날짜
                     "빈도\nLikelihood": sim_df["개선 후 빈도"],
-                    "강도\nSeverity": sim_df["개선 후 강도"],
+                    "강도\nSeverity ": sim_df["개선 후 강도"],  # 공백으로 구분
                     "T ": sim_df["개선 후 T"],
                     "등급\nRate ": sim_df["개선 후 등급"]
                 })
@@ -904,9 +904,11 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
                     ws_sim.set_column(col_idx, col_idx, min(max_length + 2, 50))
 
         return output.getvalue()
+        
     except ImportError:
         st.warning("Excel 다운로드를 위한 라이브러리가 없습니다. CSV로 다운로드합니다.")
         # CSV 백업도 동일한 형식으로 생성
+        from datetime import datetime
         csv_buffer = io.StringIO()
         
         # 메인 결과를 CSV로 생성
@@ -923,7 +925,7 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
             "개선담당자\nResponsibility": [""],  # 개선담당자는 빈칸
             "개선일자\nAction Date": [datetime.now().strftime("%Y-%m-%d")],  # 개선일자는 현재 날짜
             "빈도\nLikelihood": [result_dict["improved_freq"]],
-            "강도\nSeverity": [result_dict["improved_intensity"]],
+            "강도\nSeverity ": [result_dict["improved_intensity"]],  # 공백으로 구분
             "T ": [result_dict["improved_T"]],
             "등급\nRate ": [determine_grade(result_dict["improved_T"])]
         })
