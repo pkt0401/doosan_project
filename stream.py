@@ -1006,7 +1006,7 @@ with tabs[1]:
     with col_dataset:
         dataset_name = st.selectbox(
             texts["dataset_label"],
-            ["SWRO 건축공정 (건축)", "Civil (토목)", "Marine (토목)", "SWRO 기계공사 (플랜트)", "SWRO 전기작업표준 (플랜트)"],
+            ["건축", "토목", "플랜트"],
             key="dataset_all"
         )
 
