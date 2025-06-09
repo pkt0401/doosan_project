@@ -333,11 +333,11 @@ def determine_grade(value: int) -> str:
 
 def get_grade_color(grade: str) -> str:
     colors = {
-        'A': '#ff1744',
-        'B': '#ff9800',
-        'C': '#ffc107',
-        'D': '#4caf50',
-        'E': '#2196f3',
+        'A': '#ff1744',    # 빨간색 (매우 위험)
+        'B': '#ff9800',    # 주황색 (위험)
+        'C': '#4caf50',    # 초록색 (보통)
+        'D': '#4caf50',    # 초록색 (낮음)
+        'E': '#4caf50',    # 초록색 (매우 낮음)
     }
     return colors.get(grade, '#808080')
 
