@@ -870,23 +870,18 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
             workbook = writer.book
 
             # ─── 메인 결과를 데이터셋 형식에 맞춰 단일 시트로 생성 ─────────────────
-            # 원본 데이터셋의 정확한 컬럼 구조와 동일하게 생성
+            # 수정된 컬럼 구조 - 요청에 따라 특정 컬럼만 포함
             main_result_df = pd.DataFrame({
-                "작업활동 및 내용\nWork & Contents": [result_dict["activity"]],
-                "유해위험요인 및 환경측면 영향\nHazard & Risk": [result_dict["hazard"]],
+                "작업활동 및 내용 Work & Contents": [result_dict["activity"]],
+                "유해위험요인 및 환경측면 영향 Hazard & Risk": [result_dict["hazard"]],
                 "EHS": ["S"],  # EHS는 "S"로 설정
-                "피해형태 및 환경영향\nDamage & Effect": [""],  # 빈 값으로 설정
-                "빈도\nRisk Rate": [result_dict["freq"]],  # 첫 번째 위험성 Risk Rate 하위
-                "강도\nSeverity": [result_dict["intensity"]],
-                "T": [result_dict["T"]],
-                "등급\nRate": [result_dict["grade"]],
-                "개선대책 및 세부관리방안\nCorrective Action": [result_dict["improvement_plan"]],
-                "개선담당자\nResponsibility": [""],  # 개선담당자는 빈칸
-                "개선일자\nAction Date": [current_date],  # 개선일자는 현재 날짜
-                "빈도\nLikelihood": [result_dict["improved_freq"]],  # 두 번째 위험성 Risk Rate 하위
-                "강도\nSeverity ": [result_dict["improved_intensity"]],  # 공백으로 구분
-                "T ": [result_dict["improved_T"]],  # 공백으로 구분
-                "등급\nRate ": [determine_grade(result_dict["improved_T"])]  # 공백으로 구분
+                "빈도 Risk Rate": [result_dict["freq"]],
+                "강도 Severity": [result_dict["intensity"]],
+                "개선대책 및 세부관리방안 Corrective Action": [result_dict["improvement_plan"]],
+                "개선담당자 Responsibility": [""],  # 개선담당자는 빈칸
+                "개선일자 Correction Due Date": [current_date],  # 개선일자는 현재 날짜
+                "빈도 Likelihood": [result_dict["improved_freq"]],
+                "강도 Severity ": [result_dict["improved_intensity"]],  # 공백으로 구분
             })
             
             main_result_df.to_excel(writer, sheet_name="위험성평가결과", index=False)
@@ -900,30 +895,83 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
                 )
                 ws_main.set_column(col_idx, col_idx, min(max_length + 2, 50))
 
-            # ─── 유사사례 시트 (기존 데이터셋 형식) ─────────────────
+            # ─── 작업분석 및 예정공정표 시트 (컬럼명만 생성) ─────────────────
+            job_analysis_df = pd.DataFrame(columns=[
+                "작업순서 Work Sequence",
+                "작업내용 Work Contents", 
+                "시작일 Start Date",
+                "완료일 End Date",
+                "소요일수 Duration",
+                "작업량 Work Volume",
+                "비고 Remarks"
+            ])
+            job_analysis_df.to_excel(writer, sheet_name="작업분석 및 예정공정표", index=False)
+            ws_job = writer.sheets["작업분석 및 예정공정표"]
+            for col_idx in range(len(job_analysis_df.columns)):
+                ws_job.set_column(col_idx, col_idx, 20)
+
+            # ─── 인력 투입계획 시트 (컬럼명만 생성) ─────────────────
+            manpower_df = pd.DataFrame(columns=[
+                "작업구분 Work Type",
+                "직종 Job Category",
+                "인원수 Number of Workers",
+                "작업기간 Work Period",
+                "투입시기 Input Timing",
+                "자격요건 Qualification",
+                "비고 Remarks"
+            ])
+            manpower_df.to_excel(writer, sheet_name="인력 투입계획", index=False)
+            ws_manpower = writer.sheets["인력 투입계획"]
+            for col_idx in range(len(manpower_df.columns)):
+                ws_manpower.set_column(col_idx, col_idx, 18)
+
+            # ─── 건설장비 투입계획 시트 (컬럼명만 생성) ─────────────────
+            heavy_equipment_df = pd.DataFrame(columns=[
+                "장비명 Equipment Name",
+                "규격/용량 Specification",
+                "대수 Quantity",
+                "투입기간 Input Period",
+                "사용목적 Purpose",
+                "운전자 Operator",
+                "비고 Remarks"
+            ])
+            heavy_equipment_df.to_excel(writer, sheet_name="건설장비 투입계획", index=False)
+            ws_heavy = writer.sheets["건설장비 투입계획"]
+            for col_idx in range(len(heavy_equipment_df.columns)):
+                ws_heavy.set_column(col_idx, col_idx, 20)
+
+            # ─── 기계-기구 투입계획 시트 (컬럼명만 생성) ─────────────────
+            tools_equipment_df = pd.DataFrame(columns=[
+                "기계/기구명 Tool/Equipment Name",
+                "규격/모델 Specification/Model",
+                "수량 Quantity",
+                "사용기간 Usage Period",
+                "사용목적 Purpose",
+                "점검상태 Inspection Status",
+                "비고 Remarks"
+            ])
+            tools_equipment_df.to_excel(writer, sheet_name="기계기구 투입계획", index=False)
+            ws_tools = writer.sheets["기계기구 투입계획"]
+            for col_idx in range(len(tools_equipment_df.columns)):
+                ws_tools.set_column(col_idx, col_idx, 22)
+
+            # ─── 유사사례 시트 (기존과 동일하지만 컬럼명 수정) ─────────────────
             if similar_records:
                 sim_df = pd.DataFrame(similar_records)
                 sim_df["개선 후 빈도"] = sim_df["빈도"].astype(int).apply(lambda x: max(1, x - 1))
                 sim_df["개선 후 강도"] = sim_df["강도"].astype(int).apply(lambda x: max(1, x - 1))
-                sim_df["개선 후 T"] = sim_df["개선 후 빈도"] * sim_df["개선 후 강도"]
-                sim_df["개선 후 등급"] = sim_df["개선 후 T"].apply(determine_grade)
 
                 export_df = pd.DataFrame({
-                    "작업활동 및 내용\nWork & Contents": sim_df["작업활동"],
-                    "유해위험요인 및 환경측면 영향\nHazard & Risk": sim_df["유해위험요인"],
+                    "작업활동 및 내용 Work & Contents": sim_df["작업활동"],
+                    "유해위험요인 및 환경측면 영향 Hazard & Risk": sim_df["유해위험요인"],
                     "EHS": ["S" for _ in range(len(sim_df))],  # EHS는 "S"로 설정
-                    "피해형태 및 환경영향\nDamage & Effect": ["" for _ in range(len(sim_df))],
-                    "빈도\nRisk Rate": sim_df["빈도"],
-                    "강도\nSeverity": sim_df["강도"],
-                    "T": sim_df["T"],
-                    "등급\nRate": sim_df["등급"],
-                    "개선대책 및 세부관리방안\nCorrective Action": sim_df["개선대책"],
-                    "개선담당자\nResponsibility": ["" for _ in range(len(sim_df))],  # 개선담당자는 빈칸
-                    "개선일자\nAction Date": [current_date for _ in range(len(sim_df))],  # 개선일자는 현재 날짜
-                    "빈도\nLikelihood": sim_df["개선 후 빈도"],
-                    "강도\nSeverity ": sim_df["개선 후 강도"],  # 공백으로 구분
-                    "T ": sim_df["개선 후 T"],
-                    "등급\nRate ": sim_df["개선 후 등급"]
+                    "빈도 Risk Rate": sim_df["빈도"],
+                    "강도 Severity": sim_df["강도"],
+                    "개선대책 및 세부관리방안 Corrective Action": sim_df["개선대책"],
+                    "개선담당자 Responsibility": ["" for _ in range(len(sim_df))],  # 개선담당자는 빈칸
+                    "개선일자 Correction Due Date": [current_date for _ in range(len(sim_df))],  # 개선일자는 현재 날짜
+                    "빈도 Likelihood": sim_df["개선 후 빈도"],
+                    "강도 Severity ": sim_df["개선 후 강도"],  # 공백으로 구분
                 })
                 export_df.to_excel(writer, sheet_name="유사사례", index=False)
                 ws_sim = writer.sheets["유사사례"]
@@ -944,28 +992,22 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
         from datetime import datetime
         csv_buffer = io.StringIO()
         
-        # 메인 결과를 CSV로 생성
+        # 메인 결과를 CSV로 생성 (수정된 컬럼명 적용)
         main_result_df = pd.DataFrame({
-            "작업활동 및 내용\nWork & Contents": [result_dict["activity"]],
-            "유해위험요인 및 환경측면 영향\nHazard & Risk": [result_dict["hazard"]],
+            "작업활동 및 내용 Work & Contents": [result_dict["activity"]],
+            "유해위험요인 및 환경측면 영향 Hazard & Risk": [result_dict["hazard"]],
             "EHS": ["S"],  # EHS는 "S"로 설정
-            "피해형태 및 환경영향\nDamage & Effect": [""],
-            "빈도\nRisk Rate": [result_dict["freq"]],
-            "강도\nSeverity": [result_dict["intensity"]],
-            "T": [result_dict["T"]],
-            "등급\nRate": [result_dict["grade"]],
-            "개선대책 및 세부관리방안\nCorrective Action": [result_dict["improvement_plan"]],
-            "개선담당자\nResponsibility": [""],  # 개선담당자는 빈칸
-            "개선일자\nAction Date": [datetime.now().strftime("%Y-%m-%d")],  # 개선일자는 현재 날짜
-            "빈도\nLikelihood": [result_dict["improved_freq"]],
-            "강도\nSeverity ": [result_dict["improved_intensity"]],  # 공백으로 구분
-            "T ": [result_dict["improved_T"]],
-            "등급\nRate ": [determine_grade(result_dict["improved_T"])]
+            "빈도 Risk Rate": [result_dict["freq"]],
+            "강도 Severity": [result_dict["intensity"]],
+            "개선대책 및 세부관리방안 Corrective Action": [result_dict["improvement_plan"]],
+            "개선담당자 Responsibility": [""],  # 개선담당자는 빈칸
+            "개선일자 Correction Due Date": [datetime.now().strftime("%Y-%m-%d")],  # 개선일자는 현재 날짜
+            "빈도 Likelihood": [result_dict["improved_freq"]],
+            "강도 Severity ": [result_dict["improved_intensity"]],  # 공백으로 구분
         })
         
         main_result_df.to_csv(csv_buffer, index=False, encoding="utf-8-sig")
         return csv_buffer.getvalue().encode("utf-8-sig")
-
 # -----------------------------------------------------------------------------  
 # ---------------------- Overview 탭 ------------------------------------------  
 # -----------------------------------------------------------------------------  
