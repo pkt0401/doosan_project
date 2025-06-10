@@ -942,7 +942,7 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
                 )
                 ws_main.set_column(col_idx, col_idx, min(max_length + 2, 50))
 
-            # ─── 6. 유사사례 시트 (마지막) ─────────────────
+            # ─── 6. 유사사례 시트 ─────────────────
             if similar_records:
                 sim_df = pd.DataFrame(similar_records)
                 sim_df["개선 후 빈도"] = sim_df["빈도"].astype(int).apply(lambda x: max(1, x - 1))
@@ -970,6 +970,21 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
                         export_df[column].astype(str).str.len().max() if not export_df[column].empty else 0
                     )
                     ws_sim.set_column(col_idx, col_idx, min(max_length + 2, 50))
+
+            # ─── 7. 현장 간섭 및 요청사항 시트 (마지막) ─────────────────
+            request_df = pd.DataFrame(columns=[
+                "EHS",
+                "현장간섭 및 요청사항 Site Issues & Request",
+                "해당업체(부서) Relevant Party",
+                "완료유무 Status"
+            ])
+            request_df.to_excel(writer, sheet_name="현장 간섭 및 요청사항 Request", index=False)
+            ws_request = writer.sheets["현장 간섭 및 요청사항 Request"]
+            # 각 컬럼 너비 조정
+            ws_request.set_column(0, 0, 10)  # EHS
+            ws_request.set_column(1, 1, 40)  # 현장간섭 및 요청사항
+            ws_request.set_column(2, 2, 25)  # 해당업체(부서)
+            ws_request.set_column(3, 3, 15)  # 완료유무
 
         return output.getvalue()
         
