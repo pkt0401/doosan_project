@@ -8,7 +8,7 @@ import io
 from sklearn.model_selection import train_test_split
 from openai import OpenAI
 
-# ----------------- 시스템 다국어 텍스트 -----------------
+# ----------------- 언어별 시스템 다국어 텍스트 (3가지 언어 지원) -----------------
 system_texts = {
     "Korean": {
         "title": "Artificial Intelligence Risk Assessment",
@@ -85,7 +85,6 @@ system_texts = {
         "col_duedate_header": "개선일자 Correction Due Date",
         "col_after_likelihood_header": "위험성 Risk – 빈도 likelihood",
         "col_after_severity_header": "위험성 Risk – 강도 severity",
-        # 추가된 다국어 텍스트
         "frequency_label": "빈도",
         "intensity_label": "강도",
         "t_value_label": "T값",
@@ -172,7 +171,6 @@ system_texts = {
         "col_duedate_header": "개선일자 Correction Due Date",
         "col_after_likelihood_header": "위험성 Risk – 빈도 likelihood",
         "col_after_severity_header": "위험성 Risk – 강도 severity",
-        # 추가된 다국어 텍스트
         "frequency_label": "Frequency",
         "intensity_label": "Intensity",
         "t_value_label": "T Value",
@@ -257,7 +255,6 @@ system_texts = {
         "col_duedate_header": "개선일자 Correction Due Date",
         "col_after_likelihood_header": "위험성 Risk – 빈도 likelihood",
         "col_after_severity_header": "위험성 Risk – 강도 severity",
-        # 추가된 다국어 텍스트
         "frequency_label": "频率",
         "intensity_label": "强度",
         "t_value_label": "T值",
@@ -306,7 +303,7 @@ with colLang:
     )
     ss.language = lang
 texts = system_texts[ss.language]
-result_language = ss.language   # UI 언어와 동일하게 결과 언어로 사용
+result_language = ss.language   
 
 # ----------------- 헤더 -----------------
 st.markdown(f'<div class="main-header">{texts["title"]}</div>', unsafe_allow_html=True)
@@ -346,7 +343,7 @@ def compute_rrr(original_t: int, improved_t: int) -> float:
         return 0.0
     return ((original_t - improved_t) / original_t) * 100
 
-# ─── 신규 추가: 개선대책 번호 기준 줄바꿈 함수 ─────────────────
+# ─── 개선대책 번호 기준 줄바꿈 함수 ─────────────────
 def format_improvement_plan_for_display(plan_text: str) -> str:
     """
     개선대책(plan_text)이 '1) ... 2) ... 3) ...' 식 번호 매겨져 있을 때,
@@ -917,7 +914,6 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
                 ws_tools.set_column(col_idx, col_idx, 25)
 
             # ─── 5. 메인 결과를 데이터셋 형식에 맞춰 단일 시트로 생성 (다섯 번째) ─────────────────
-            # 수정된 컬럼 구조 - 요청에 따라 특정 컬럼만 포함
             main_result_df = pd.DataFrame({
                 "작업활동 및 내용 Work & Contents": [result_dict["activity"]],
                 "유해위험요인 및 환경측면 영향 Hazard & Risk": [result_dict["hazard"]],
@@ -994,7 +990,7 @@ def create_excel_download(result_dict: dict, similar_records: list[dict]) -> byt
         from datetime import datetime
         csv_buffer = io.StringIO()
         
-        # 메인 결과를 CSV로 생성 (수정된 컬럼명 적용)
+        # 메인 결과를 CSV로 생성
         main_result_df = pd.DataFrame({
             "작업활동 및 내용 Work & Contents": [result_dict["activity"]],
             "유해위험요인 및 환경측면 영향 Hazard & Risk": [result_dict["hazard"]],
@@ -1051,7 +1047,7 @@ with tabs[1]:
     with col_api:
         api_key = st.text_input(texts["api_key_label"], type="password", key="api_key_all")
     with col_dataset:
-        # 수정된 데이터셋 선택 - 언어별 번역 적용
+        # 데이터셋 선택 - 언어별 번역 적용
         dataset_options = [
             texts["dataset_architecture"], 
             texts["dataset_civil"], 
@@ -1281,7 +1277,7 @@ with tabs[1]:
 
                     with c_riskimp:
                         st.markdown(f"### {texts['risk_improvement_header']}")
-                        # 수정된 비교 테이블 - 다국어 라벨 적용
+                        # 비교 테이블 - 다국어 라벨 적용
                         comp_df_user = pd.DataFrame({
                             texts["comparison_columns"][0]: [
                                 texts["frequency_label"], 
