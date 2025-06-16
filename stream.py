@@ -386,7 +386,7 @@ def format_improvement_plan_for_display(plan_text: str) -> str:
 
 @st.cache_data(show_spinner=False)
 def load_data(selected_dataset_name: str, language: str) -> pd.DataFrame:
-        """선택된 데이터셋을 읽어와 전처리 후 DataFrame 반환"""
+    """선택된 데이터셋을 읽어와 전처리 후 DataFrame 반환"""
     try:
         # 언어별 데이터셋 이름을 실제 파일명으로 매핑
         if language == "Korean":
