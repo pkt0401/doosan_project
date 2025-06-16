@@ -367,7 +367,7 @@ def compute_rrr(original_t: int, improved_t: int) -> float:
 
 # ─── 개선대책 번호 기준 줄바꿈 함수 ─────────────────
 def format_improvement_plan_for_display(plan_text: str) -> str:
-"""'1) ... 2) ...' 형식 개선대책 문자열을 줄바꿈 처리하여 가독성 향상"""
+    """'1) ... 2) ...' 형식 개선대책 문자열을 줄바꿈 처리하여 가독성 향상"""
     if not plan_text:
         return ""
 
